@@ -35,8 +35,6 @@
   (let [g (dissoc g leaf)]
     (reduce #(update %1 %2 disj leaf) g (keys g))))
 
-(defn- find-first [pred coll] (some (fn [x] (when (pred x) x)) coll))
-
 ;; TODO: https://cs.stackexchange.com/questions/16848/topological-sort-equivalence
 (defn topological-sort
   "Using Kahn's method, return a topological sort of the acyclic digraph `dag`.
