@@ -1,0 +1,37 @@
+{:mvn/repos {"datomic-cloud" {:url       "s3://datomic-releases-1fc2183a/maven/releases"
+                              :snapshots {:enabled false}}}
+ :deps      {com.cognitect/anomalies  {:mvn/version "0.1.12"}
+             com.datomic/client-cloud {:mvn/version "1.0.123"}
+             org.clojure/clojure      {:mvn/version "1.11.1"}}
+
+ :paths ["src" "resources"]
+
+ :aliases {:dev {:extra-paths ["classes" "dev" "dev-resources"]
+                 :extra-deps  {com.datomic/dev-local  {:local/root "vendor/jars/dev-local-1.0.242.jar"}
+                               io.github.nubank/morse {:git/tag "v2023.04.30.01" :git/sha "d99b09c"}}
+                 :jvm-opts    [;; https://www.metosin.fi/blog/missing-stacktraces
+                               "-XX:-OmitStackTraceInFastThrow"]}
+
+           ;; Example Usage: clj -M:cljfmt <my-source-file>
+           :cljfmt {:replace-deps {cljfmt/cljfmt {:mvn/version "RELEASE"}}
+                    :main-opts    ["-m" "cljfmt.main" "check" "--indents" "indentation.edn"]}
+
+           ;; Reference: https://github.com/liquidz/antq
+           ;; Example Usage: clj -M:outdated
+           :outdated {:deps      {com.github.liquidz/antq {:mvn/version "2.5.1095"}
+                                  ;; unlike Datomic Ions, antq uses version 2.X of slf4j
+                                  org.slf4j/slf4j-nop     {:mvn/version "2.0.7"}}
+                      :main-opts ["-m" "antq.core"]}
+
+           :test {:extra-paths ["classes" "test" "test-resources"]
+                  :extra-deps  {com.datomic/dev-local  {:local/root "vendor/jars/dev-local-1.0.242.jar"}
+                                org.clojure/test.check {:mvn/version "1.1.1"}}
+                  :jvm-opts    ["-XX:-OmitStackTraceInFastThrow"]}
+
+           :test-runner {:extra-deps {com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                                      :git/sha "dfb30dd"
+                                                                      :git/tag "v0.5.1"}
+                                      ;; The logger backend selected must be compatible with slf4j-api v1 as used by Datomic
+                                      ch.qos.logback/logback-classic ^:antq/exclude {:mvn/version "1.2.11"}}
+                         :main-opts ["-m" "cognitect.test-runner"]
+                         :exec-fn cognitect.test-runner.api/test}}}

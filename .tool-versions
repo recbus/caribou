@@ -1,0 +1,7 @@
+# https://asdf-vm.com/
+
+# Java:
+java temurin-jre-17.0.7+7
+
+# Clojure:
+clojure 1.11.1.1342
