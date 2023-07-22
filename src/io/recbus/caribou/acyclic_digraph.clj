@@ -12,8 +12,9 @@
 (defn- normalize
   "Normalize the acyclic digraph represented by the `edges` map whose keys
   are 'from' vertices and whose values are the associated sets of 'to' vertices.
-  Return the normalized edges, including the synthesized `root`, which connects
-  all unconnected subgraphs."
+  Normalized form includes an entry for every node (even if it has no downstream
+  nodes) and a synthesized `root`, which connects all otherwise unconnected
+  subgraphs."
   [edges root]
   (let [edges (dissoc edges root)
         g (reduce (fn [edges [vin vouts]]
