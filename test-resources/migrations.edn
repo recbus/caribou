@@ -1,0 +1,651 @@
+{:st.schema/tx-metadata              {:tx-data
+                                      [{:db/ident       :aws.sts.identity/arn,
+                                        :db/doc         "The AWS ARN that uniquely identifies an AWS STS identity",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.db/provenance,
+                                        :db/doc
+                                        "The human-readable source for the data of this transaction",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.db/standard,
+                                        :db/doc         "The standard governing the values of this attribute.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st/reference,
+                                        :db/doc
+                                        "A URI identifying more information relevant to this entity",
+                                        :db/valueType   :db.type/uri,
+                                        :db/cardinality :db.cardinality/many}],
+                                      :dependencies []}
+ :st.schema/ansi-states              {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :ansi.fips/state-numeric,
+                                        :db/doc
+                                        "The Federal Information Process Series (FIPS) two-digit numeric code for a state, as managed by ANSI",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity,
+                                        :st.db/standard "INCITS 38-2009; formerly FIPS 5-2",
+                                        :st/reference
+                                        [#st/uri "https://webstore.ansi.org/standards/incits/incits382009"
+                                         #st/uri "https://geonames.usgs.gov/docs/pubs/Nat_State_Topic_File_formats.pdf"
+                                         #st/uri "https://www.census.gov/library/reference/code-lists/ansi.html#state"]}
+                                       {:db/ident       :usps/state-abbreviation,
+                                        :db/doc
+                                        "The United States Postal Service two-letter abbreviation for the state or possession",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity,
+                                        :st.db/standard "USPS Publication 28, Appendix B (November 2022)",
+                                        :st/reference
+                                        [#st/uri "https://pe.usps.com/text/pub28/28apb.htm"
+                                         #st/uri "https://www.census.gov/library/reference/code-lists/ansi.html#state"]}
+                                       {:db/ident       :usps/state-name,
+                                        :db/doc
+                                        "The name of the state or possession as maintained by the United States Postal Service",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/value,
+                                        :st/reference
+                                        [#st/uri "https://www.census.gov/library/reference/code-lists/ansi.html#state"]}
+                                       {:db/ident       :usgs.bgn.gnis/identifier,
+                                        :db/doc
+                                        "The ten-digit numeric GNIS Feature ID (GNISID) of this state",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity,
+                                        :st.db/standard "INCITS 446-2008",
+                                        :st/reference
+                                        [#st/uri "https://geonames.usgs.gov/docs/pubs/Nat_State_Topic_File_formats.pdf"
+                                         #st/uri "https://webstore.ansi.org/search/find?in=1&st=INCITS+446-2008"
+                                         #st/uri "https://www.census.gov/library/reference/code-lists/ansi.html#state"]}]
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.seeds/ansi-states               {:tx-data
+                                      [{:db/id "datomic.tx",
+                                        :st.db/provenance
+                                        "ANSI & USGS standard data as supplied by US Census Bureau",
+                                        :st/reference
+                                        [#st/uri "https://www2.census.gov/geo/docs/reference/state.txt"
+                                         #st/uri "https://www.census.gov/library/reference/code-lists/ansi.html"]}],
+                                      :tx-data-fn   st.migrations.ansi-states/tx-data,
+                                      :context
+                                      {:data
+                                       #st/url "file:/Users/cch1/Development/SunTribe/st/resources/migrations/stt/seeds/ansi/state.txt"},
+                                      :dependencies [:st.schema/tx-metadata :st.schema/ansi-states]},
+ :st.schema/ansi-counties            {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :st.county/state,
+                                        :db/doc         "A reference to the ANSI/FIPS US state or possesion",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :ansi.fips/county-numeric,
+                                        :db/doc
+                                        "The Federal Information Process Series (FIPS) three-character digits-only code for a county, as managed by ANSI",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st.db/standard "INCITS 31-2009; formerly FIPS 6-4",
+                                        :st/reference
+                                        [#st/uri "https://webstore.ansi.org/standards/incits/incits312009r2014"
+                                         #st/uri "https://geonames.usgs.gov/docs/pubs/Nat_State_Topic_File_formats.pdf"
+                                         #st/uri "https://www.census.gov/library/reference/code-lists/ansi.html#county"]}
+                                       {:db/ident       :ansi.fips/county-name,
+                                        :db/doc         "The name of the county",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st.db/standard "INCITS 31-2009; formerly FIPS 6-4",
+                                        :st/reference
+                                        [#st/uri "https://webstore.ansi.org/standards/incits/incits312009r2014"
+                                         #st/uri "https://geonames.usgs.gov/docs/pubs/Nat_State_Topic_File_formats.pdf"
+                                         #st/uri "https://www.census.gov/library/reference/code-lists/ansi.html#county"]}
+                                       {:db/ident       :ansi.fips/classfp,
+                                        :db/doc         "The two-character classifier for a geographic entity",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st.db/standard "INCITS 446-2008; formerly FIPS55",
+                                        :st/reference
+                                        [#st/uri "https://www.census.gov/library/reference/code-lists/class-codes.html"
+                                         #st/uri "https://geonames.usgs.gov/docs/pubs/Nat_State_Topic_File_formats.pdf"]}],
+                                      :dependencies [:st.schema/tx-metadata]},
+ :st.schema/state+county-numeric     {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :st.county/state+county-numeric,
+                                        :db/doc
+                                        "The tuple of state (a reference) and county-numeric that uniquely identifies this county",
+                                        :db/valueType   :db.type/tuple,
+                                        :db/tupleAttrs  [:st.county/state :ansi.fips/county-numeric],
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity}],
+                                      :dependencies [:st.schema/tx-metadata :st.schema/ansi-counties]}
+ :st.seeds/ansi-counties             {:tx-data
+                                      [{:db/id "datomic.tx",
+                                        :st.db/provenance
+                                        "ANSI & USGS standard data as supplied by US Census Bureau",
+                                        :st/reference
+                                        [#st/uri "https://www2.census.gov/geo/docs/reference/codes/files/national_county.txt"
+                                         #st/uri "https://www.census.gov/library/reference/code-lists/ansi.html"]}],
+                                      :tx-data-fn st.migrations.ansi-counties/tx-data,
+                                      :context
+                                      {:data
+                                       #st/url "file:/Users/cch1/Development/SunTribe/st/resources/migrations/stt/seeds/ansi/national_county.txt"},
+                                      :dependencies
+                                      [:st.schema/tx-metadata
+                                       :st.seeds/ansi-states
+                                       :st.schema/ansi-counties
+                                       :st.schema/state+county-numeric]}
+ :st.schema/address                  {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :usps/delivery-line-1,
+                                        :db/doc         "The first delivery line of the mailing address",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st.db/standard "USPS Publication 28 (November 2022)",
+                                        :st/reference
+                                        [#st/uri "https://pe.usps.com/text/pub28/28c2_012.htm"
+                                         #st/uri "https://www.smarty.com/docs/cloud/us-street-api#http-response-output"]}
+                                       {:db/ident       :usps/delivery-line-2,
+                                        :db/doc         "The second delivery line of the mailing address.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st.db/standard "USPS Publication 28 (November 2022)",
+                                        :st/reference
+                                        [#st/uri "https://pe.usps.com/text/pub28/28c2_001.htm#ep526238"
+                                         #st/uri "https://www.smarty.com/docs/cloud/us-street-api#http-response-output"]}
+                                       {:db/ident       :usps/last-line,
+                                        :db/doc         "The last line of the mailing address.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st.db/standard "USPS Publication 28 (November 2022)",
+                                        :st/reference
+                                        [#st/uri "https://pe.usps.com/text/pub28/28c2_006.htm"
+                                         #st/uri "https://www.smarty.com/docs/cloud/us-street-api#http-response-output"]}
+                                       {:db/ident       :wgs84/location,
+                                        :db/doc
+                                        "The most representative geodetic position of an entity's location using the WGS84 standard",
+                                        :db/valueType   :db.type/tuple,
+                                        :db/tupleType   :db.type/double,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st.db/standard "WGS84",
+                                        :st/reference
+                                        [#st/uri "https://en.wikipedia.org/wiki/World_Geodetic_System#WGS_84"]}
+                                       {:db/ident       :smarty/precision,
+                                        :db/doc
+                                        "An indication of the precision of the location of an address",
+                                        :db/valueType   :db.type/keyword,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st/reference
+                                        [#st/uri "https://www.smarty.com/docs/cloud/us-street-api#metadata"]}
+                                       {:db/ident       :st.address/county,
+                                        :db/doc         "A reference to the county containing the address entity",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.schema/state+county-name        {:tx-data
+                                      [{:db/ident       :st.county/state+county-name,
+                                        :db/doc
+                                        "The tuple of state (a reference) and county-name that uniquely identifies this county",
+                                        :db/valueType   :db.type/tuple,
+                                        :db/tupleAttrs  [:st.county/state :ansi.fips/county-name],
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity}],
+                                      :dependencies
+                                      [:st.schema/tx-metadata
+                                       :st.schema/ansi-counties
+                                       :st.seeds/ansi-counties]}
+ :st.update/state+county-name        {:step-fn      st.migrations.state+county-name/assert-tuple-components,
+                                      :context      {:batch-size 1000},
+                                      :dependencies [:st.schema/state+county-name]}
+ :st.schema/pjm-utilities            {:tx-data
+                                      [{:db/id            "datomic.tx",
+                                        :st.db/provenance "Schema Migration",
+                                        :st/reference     [#st/uri "http://pjm-eis.com/Aggregator"]}
+                                       {:db/ident       :pjm.balancing-authority/name,
+                                        :db/doc         "The name of the Balancing Authority as managed by PJM",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st/reference
+                                        [#st/uri "https://gats.pjm-eis.com/gats2/AccountReports/Utilities"]}
+                                       {:db/ident       :pjm.balancing-authority/code,
+                                        :db/doc         "The Balancing Authority Code as managed by PJM",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity,
+                                        :st/reference
+                                        [#st/uri "https://gats.pjm-eis.com/gats2/AccountReports/Utilities"]}
+                                       {:db/ident       :pjm.utility/name,
+                                        :db/doc         "The name of the Utility as managed by PJM",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st/reference
+                                        [#st/uri "https://gats.pjm-eis.com/gats2/AccountReports/Utilities"]}
+                                       {:db/ident       :pjm.utility/id,
+                                        :db/doc         "The identifier of the Utility as managed by PJM",
+                                        :db/valueType   :db.type/long,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity,
+                                        :st/reference
+                                        [#st/uri "https://gats.pjm-eis.com/gats2/AccountReports/Utilities"]}
+                                       {:db/ident       :st.cub/county,
+                                        :db/doc
+                                        "The county of the county+utility+balancing-authority triple",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.cub/utility,
+                                        :db/doc
+                                        "The utility of the county+utility+balancing-authority triple",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.cub/balancing-authority,
+                                        :db/doc
+                                        "The balancing-authority of the county+utility+balancing-authority triple",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.cub/county+utility+balancing-authority,
+                                        :db/doc         "The county+utility+balancing-authority triple",
+                                        :db/valueType   :db.type/tuple,
+                                        :db/tupleAttrs
+                                        [:st.cub/county :st.cub/utility :st.cub/balancing-authority],
+                                        :db/unique      :db.unique/value,
+                                        :db/cardinality :db.cardinality/one}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.seeds/pjm-balancing-authorities {:tx-data
+                                      [{:db/id            "datomic.tx",
+                                        :st.db/provenance "Schema Migration",
+                                        :st/reference     [#st/uri "http://pjm-eis.com/Aggregator"]}],
+                                      :tx-data-fn
+                                      st.migrations.pjm-utilities/balancing-authorities-tx-data,
+                                      :context
+                                      {:data
+                                       #st/url "file:/Users/cch1/Development/SunTribe/st/resources/migrations/stt/seeds/pjm/Utilities_20230323_133352.csv"},
+                                      :dependencies [:st.schema/pjm-utilities :st.seeds/ansi-counties]}
+ :st.seeds/pjm-utilities             {:tx-data
+                                      [{:db/id            "datomic.tx",
+                                        :st.db/provenance "Schema Migration",
+                                        :st/reference     [#st/uri "http://pjm-eis.com/Aggregator"]}],
+                                      :tx-data-fn   st.migrations.pjm-utilities/utilities-tx-data,
+                                      :context
+                                      {:data
+                                       #st/url "file:/Users/cch1/Development/SunTribe/st/resources/migrations/stt/seeds/pjm/Utilities_20230323_133352.csv"},
+                                      :dependencies [:st.schema/pjm-utilities]}
+ :st.seeds/pjm-cubs                  {:tx-data
+                                      [{:db/id            "datomic.tx",
+                                        :st.db/provenance "Schema Migration",
+                                        :st/reference     [#st/uri "http://pjm-eis.com/Aggregator"]}],
+                                      :tx-data-fn st.migrations.pjm-utilities/cubs-tx-data,
+                                      :context
+                                      {:data
+                                       #st/url "file:/Users/cch1/Development/SunTribe/st/resources/migrations/stt/seeds/pjm/Utilities_20230323_133352.csv"},
+                                      :dependencies
+                                      [:st.schema/pjm-utilities
+                                       :st.seeds/pjm-utilities
+                                       :st.seeds/pjm-balancing-authorities
+                                       :st.seeds/ansi-counties]}
+ :st.schema/address-hash             {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :st.address/hash,
+                                        :db/doc
+                                        "The consistent hash of identifying elements of the address entity.",
+                                        :db/valueType   :db.type/long,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.schema/person                   {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :st.legal-person/name,
+                                        :db/doc         "The name of this legal person, natural or juridical.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity,
+                                        :st/reference
+                                        [#st/uri "https://en.wikipedia.org/wiki/Legal_person"]}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.schema/generator                {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :st.generator/sysid,
+                                        :db/doc
+                                        "The synthetic identifer assigned at creation to this generator.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity}
+                                       {:db/ident       :gats.generator/unit-id,
+                                        :db/doc         "The primary identifer of this generator assigned by GATS",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity}
+                                       {:db/ident       :st.generator/nominal-power,
+                                        :db/doc
+                                        "The max theoretical (\"nameplate\") power capacity of this generator in kilowatts.",
+                                        :db/valueType   :db.type/double,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st/reference
+                                        [#st/uri "https://en.wikipedia.org/wiki/Nominal_power_(photovoltaic)"]}
+                                       {:db/ident       :st.generator/nominal-power-AC,
+                                        :db/doc
+                                        "The max theoretical (\"nameplate\") power capacity of this generator in kilowatts, after conversion to AC.",
+                                        :db/valueType   :db.type/double,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st/reference
+                                        [#st/uri "https://en.wikipedia.org/wiki/Nominal_power_(photovoltaic)"]}
+                                       {:db/ident       :st.generator/online-on,
+                                        :db/doc         "The date this generator went online.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator/interconnected-on,
+                                        :db/doc
+                                        "The date this generator was interconnected with the power utility",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator/address,
+                                        :db/doc
+                                        "The physical location, typically represented by USPS street address, of this generator.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator/owner,
+                                        :db/doc         "The owner of this generator.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator/utility,
+                                        :db/doc         "The utility to which this generator is connected.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator/balancing-authority,
+                                        :db/doc
+                                        "The balancing authority to which this generator is connected.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator/arrays,
+                                        :db/doc         "The component arrays of this generator.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/many,
+                                        :db/isComponent true}
+                                       {:db/ident       :st.generator.array/generator,
+                                        :db/doc         "The generator to which this array belongs",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator.array/index,
+                                        :db/doc
+                                        "The zero-based index of this array in the collection of all arrays of the parent generator.",
+                                        :db/valueType   :db.type/long,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator.array/generator+index,
+                                        :db/doc
+                                        "The unique-identity of this array within its parent generator.",
+                                        :db/valueType   :db.type/tuple,
+                                        :db/tupleAttrs
+                                        [:st.generator.array/generator :st.generator.array/index],
+                                        :db/unique      :db.unique/identity,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator.array/type,
+                                        :db/doc         "The type of this array",
+                                        :db/valueType   :db.type/keyword,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator.array/tilt,
+                                        :db/doc         "The elevation angle (0-90) of the panels in this array.",
+                                        :db/valueType   :db.type/float,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator.array/orientation,
+                                        :db/doc
+                                        "The azimuth angle (0-359) relative to true north of the panels in this array.",
+                                        :db/valueType   :db.type/float,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator.array/module-count,
+                                        :db/doc         "The number of photovoltaic panels in this array.",
+                                        :db/valueType   :db.type/long,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator.array/module-power-rating,
+                                        :db/doc
+                                        "The power rating, in Watts, of individual photovoltaic panels in this array.",
+                                        :db/valueType   :db.type/float,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.generator.meter/name,
+                                        :db/doc         "The name of this meter.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :gats.generator.meter/gats-id,
+                                        :db/doc         "The GATS id of this meter.",
+                                        :db/valueType   :db.type/long,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity}],
+                                      :dependencies [:st.schema/tx-metadata]},
+ :st.schema/address-common-elements  {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :usps/zipcode,
+                                        :db/doc         "The ZIP Code of this address.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st.db/standard "USPS Publication 28 (November 2022)",
+                                        :st/reference
+                                        [#st/uri "https://pe.usps.com/text/pub28/28c2_001.htm#ep526238"
+                                         #st/uri "https://www.smarty.com/docs/cloud/us-street-api#http-response-output"]}
+                                       {:db/ident       :usps/city-name,
+                                        :db/doc         "The city name of this address.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st.db/standard "USPS Publication 28 (November 2022)",
+                                        :st/reference
+                                        [#st/uri "https://pe.usps.com/text/pub28/28c2_006.htm#ep538069"
+                                         #st/uri "https://www.smarty.com/docs/cloud/us-street-api#http-response-output"]}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.schema/document                 {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :st.document/id,
+                                        :db/doc         "The unique identifier of this document.",
+                                        :db/valueType   :db.type/uuid,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity}
+                                       {:db/ident       :st.document/md5-signature,
+                                        :db/doc
+                                        "The hex-encoded MD5 signature of this document's content.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/value}
+                                       {:db/ident       :st.document/mime-type,
+                                        :db/doc         "The Media Type of the document.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st/reference
+                                        [#st/uri "https://datatracker.ietf.org/doc/html/rfc6838"]}
+                                       {:db/ident       :st.document/filename,
+                                        :db/doc
+                                        "The recommended name of the document, when stored as a file.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :aws.s3/bucket,
+                                        :db/doc
+                                        "The name of the AWS S3 bucket in which this document resides.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :aws.s3/key,
+                                        :db/doc         "The AWS S3 bucket key of this document.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :aws.s3/bucket+key,
+                                        :db/doc         "The composite tuple of AWS Bucket + Key.",
+                                        :db/valueType   :db.type/tuple,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/tupleAttrs  [:aws.s3/bucket :aws.s3/key],
+                                        :db/unique      :db.unique/identity}
+                                       {:db/ident       :st.generator/documents,
+                                        :db/doc         "The documents associated with this generator.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/many}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.schema/document-usage           {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :st.document/usage,
+                                        :db/doc
+                                        "The primary application or intended usage of this document.",
+                                        :db/valueType   :db.type/keyword,
+                                        :db/cardinality :db.cardinality/one}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.schema/generator-spec           {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident        :st.generator/spec,
+                                        :db.entity/attrs [:st.generator/sysid]}],
+                                      :dependencies [:st.schema/generator]}
+ :st.schema/address-dpv              {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :usps/deliverable?,
+                                        :db/doc         "Can mail be delivered to this address by the USPS?",
+                                        :db/valueType   :db.type/boolean,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st/reference
+                                        [#st/uri "https://www.smarty.com/docs/cloud/us-street-api#dpv_match_code"
+                                         #st/uri "https://www.smarty.com/articles/usps-api"]}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.schema/address-type             {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :usps/record-type,
+                                        :db/doc
+                                        "The type of address, or record type according to the USPS.",
+                                        :db/valueType   :db.type/keyword,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st/reference
+                                        [#st/uri "https://www.smarty.com/docs/cloud/us-street-api#record_type"]}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.schema/document-digest          {:tx-data
+                                      [{:db/ident       :st.document/sha256-digest,
+                                        :db/doc
+                                        "The hex-encoded SHA256 digest of this document's content.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/value}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.schema/user                     {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :oidc/iss,
+                                        :db/doc         "The OIDC issuer claim of this user's identity token.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st/reference
+                                        [#st/uri "https://openid.net/specs/openid-connect-core-1_0.html#IDToken"]}
+                                       {:db/ident       :oidc/sub,
+                                        :db/doc
+                                        "The OIDC subject identifier claim of this user's identity token.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :st/reference
+                                        [#st/uri "https://openid.net/specs/openid-connect-core-1_0.html#IDToken"]}
+                                       {:db/ident       :oidc/iss+sub,
+                                        :db/doc
+                                        "The tuple of iss and sub claims of this user's identity token.",
+                                        :db/valueType   :db.type/tuple,
+                                        :db/tupleAttrs  [:oidc/iss :oidc/sub],
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.schema/authz                    {:tx-data
+                                      [{:db/id            "datomic.tx",
+                                        :st.db/provenance "Schema Migration",
+                                        :st/reference     [#st/uri "https://docs.cedarpolicy.com/"]}
+                                       {:db/ident       :st.authz.role/name,
+                                        :db/doc         "The name of the role entity",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/value}
+                                       {:db/ident       :st.authz.principal/children,
+                                        :db/doc         "The child principals included in this principal entity.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/many}
+                                       {:db/ident       :st.authz.resource/children,
+                                        :db/doc         "The child resources included in this resource entity.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/many}
+                                       {:db/ident       :st.authz.policy/annotation,
+                                        :db/doc         "A string describing this policy.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.authz.policy/permit?,
+                                        :db/doc         "The effect of this policy (permit or deny).",
+                                        :db/valueType   :db.type/boolean,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.authz.policy/effectivity,
+                                        :db/doc
+                                        "The power of this policy relative to other policies. A greater value implies a greater effectivity.",
+                                        :db/valueType   :db.type/long,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.authz.policy/principal,
+                                        :db/doc         "The principal entity to which this policy applies.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/many}
+                                       {:db/ident       :st.authz.policy/action,
+                                        :db/doc
+                                        "The operation or access mode to which this policy applies.",
+                                        :db/valueType   :db.type/keyword,
+                                        :db/cardinality :db.cardinality/many}
+                                       {:db/ident       :st.authz.policy/resource,
+                                        :db/doc         "The resource entity to which this policy applies.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/many}
+                                       {:db/ident       :st.authz.policy/p-ref,
+                                        :db/doc
+                                        "The principal-to-resource reference relation that must exist for this policy to be applicable.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.authz.policy/r-ref,
+                                        :db/doc
+                                        "The resource-to-principal reference relation that must exist for this policy to be applicable.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.authz.policy/p-attr,
+                                        :db/doc
+                                        "The attribute a principal entity must have for this policy to be applicable.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.authz.policy/r-attr,
+                                        :db/doc
+                                        "The attribute a resource entity must have for this policy to be applicable.",
+                                        :db/valueType   :db.type/ref,
+                                        :db/cardinality :db.cardinality/one}
+                                       {:db/ident       :st.authz.policy/condition,
+                                        :db/doc
+                                        "The name of an externally-evaluated condition which determines if this policy is applicable.",
+                                        :db/valueType   :db.type/symbol,
+                                        :db/cardinality :db.cardinality/one}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.seeds/authz                     {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Authz Seed Data Migration"}
+                                       {:db/id    "Wildcard",
+                                        :db/doc
+                                        "The wildcard entity; implicitly, every scope component (principal, resource and scope) is included in this entity.",
+                                        :db/ident :st.authz/*}
+                                       {:db/id "Anonymous", :db/ident :st.authz.principal/Anonymous}
+                                       {:db/id "Superuser", :db/ident :st.authz.principal/Superuser}],
+                                      :dependencies
+                                      [:st.schema/tx-metadata :st.schema/authz :st.schema/person]}
+ :st.schema/oauth-scope-roles        {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
+                                       {:db/ident       :st.authz.role.oidc/scope,
+                                        :db/doc
+                                        "An OIDC scope value that identifies an authorization role.",
+                                        :db/valueType   :db.type/string,
+                                        :db/cardinality :db.cardinality/one,
+                                        :db/unique      :db.unique/identity}],
+                                      :dependencies [:st.schema/tx-metadata]}
+ :st.seeds/authz-policies-v0         {:tx-data
+                                      [{:db/id "datomic.tx", :st.db/provenance "Authz Seed Data Migration"}
+                                       {:st.authz.policy/annotation  "The Default Deny Policy",
+                                        :st.authz.policy/permit?     false,
+                                        :st.authz.policy/effectivity -1000,
+                                        :st.authz.policy/principal   :st.authz/*,
+                                        :st.authz.policy/action      [:st.authz/*],
+                                        :st.authz.policy/resource    :st.authz/*}
+                                       {:st.authz.policy/annotation  "Superuser Policy",
+                                        :st.authz.policy/permit?     true,
+                                        :st.authz.policy/effectivity 1000,
+                                        :st.authz.policy/principal   :st.authz.principal/Superuser,
+                                        :st.authz.policy/action      [:st.authz/*],
+                                        :st.authz.policy/resource    :st.authz/*}
+                                       {:db/id                    "Full API Use Role",
+                                        :st.authz.role.oidc/scope "https://www.recmint.com/api"}
+                                       {:st.authz.policy/annotation
+                                        "The OAuth Scope Role \"https://www.recmint.com/api\" can perform all API operations.",
+                                        :st.authz.policy/permit?     true,
+                                        :st.authz.policy/effectivity 0,
+                                        :st.authz.policy/principal   "Full API Use Role",
+                                        :st.authz.policy/action      [:st.authz/*],
+                                        :st.authz.policy/resource    :st.authz/*}],
+                                      :dependencies
+                                      [:st.schema/tx-metadata
+                                       :st.seeds/authz
+                                       :st.schema/oauth-scope-roles]}}

@@ -24,8 +24,10 @@
                       :main-opts ["-m" "antq.core"]}
 
            :test {:extra-paths ["classes" "test" "test-resources"]
-                  :extra-deps  {com.datomic/dev-local  {:local/root "vendor/jars/dev-local-1.0.242.jar"}
-                                org.clojure/test.check {:mvn/version "1.1.1"}}
+                  :extra-deps  {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
+                                com.datomic/dev-local               {:local/root "vendor/jars/dev-local-1.0.242.jar"}
+                                org.clojure/data.csv                {:mvn/version "1.0.1"}
+                                org.clojure/test.check              {:mvn/version "1.1.1"}}
                   :jvm-opts    ["-XX:-OmitStackTraceInFastThrow"]}
 
            :test-runner {:extra-deps {com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
@@ -33,5 +35,5 @@
                                                                       :git/tag "v0.5.1"}
                                       ;; The logger backend selected must be compatible with slf4j-api v1 as used by Datomic
                                       ch.qos.logback/logback-classic ^:antq/exclude {:mvn/version "1.2.11"}}
-                         :main-opts ["-m" "cognitect.test-runner"]
-                         :exec-fn cognitect.test-runner.api/test}}}
+                         :main-opts  ["-m" "cognitect.test-runner"]
+                         :exec-fn    cognitect.test-runner.api/test}}}

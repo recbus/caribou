@@ -229,3 +229,8 @@
   (->> (prepare migrations context)
        mghash
        (execute* conn)))
+
+(defn status
+  [db]
+  (let [hash (-> (d/pull db '[*] ::root) ::hash)]
+    [hash {}]))

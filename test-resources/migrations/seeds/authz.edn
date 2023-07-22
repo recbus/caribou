@@ -1,0 +1,12 @@
+[{:db/id            "datomic.tx"
+  :st.db/provenance "Authz Seed Data Migration"}
+
+ {:db/id    "Wildcard"
+  :db/doc "The wildcard entity; implicitly, every scope component (principal, resource and scope) is included in this entity."
+  :db/ident :st.authz/*}
+
+ ;; Baseline Roles
+ {:db/id    "Anonymous"
+  :db/ident :st.authz.principal/Anonymous}
+ {:db/id    "Superuser"
+  :db/ident :st.authz.principal/Superuser}]

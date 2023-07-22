@@ -1,0 +1,26 @@
+[{:db/id            "datomic.tx"
+  :st.db/provenance "Authz Seed Data Migration"}
+
+ {:st.authz.policy/annotation  "The Default Deny Policy"
+  :st.authz.policy/permit?     false
+  :st.authz.policy/effectivity -1000
+  :st.authz.policy/principal   :st.authz/*
+  :st.authz.policy/action      [:st.authz/*]
+  :st.authz.policy/resource    :st.authz/*}
+
+ {:st.authz.policy/annotation  "Superuser Policy"
+  :st.authz.policy/permit?     true
+  :st.authz.policy/effectivity 1000
+  :st.authz.policy/principal   :st.authz.principal/Superuser
+  :st.authz.policy/action      [:st.authz/*]
+  :st.authz.policy/resource    :st.authz/*}
+
+ {:db/id    "Full API Use Role"
+  :st.authz.role.oidc/scope "https://www.recmint.com/api"}
+
+ {:st.authz.policy/annotation  "The OAuth Scope Role \"https://www.recmint.com/api\" can perform all API operations."
+  :st.authz.policy/permit?     true
+  :st.authz.policy/effectivity 0
+  :st.authz.policy/principal   "Full API Use Role"
+  :st.authz.policy/action      [:st.authz/*]
+  :st.authz.policy/resource    :st.authz/*}]
