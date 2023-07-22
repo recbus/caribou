@@ -48,3 +48,11 @@
       (is (= {::sut/root #{::A},
 	      ::A #{}}
              (sut/history db))))))
+
+(deftest persisted-hash-is-stable
+  (let [migrations {::A {:tx-data [{:db/ident ::a
+                                    :db/valueType :db.type/string
+                                    :db/cardinality :db.cardinality/one}]
+                         :dependencies []}}]
+    (let [{{db :db-after} ::A} (sut/execute! *connection* migrations {})]
+      (is (= 1732701487 (-> (d/pull db '[*] ::sut/root) ::sut/hash))))))
