@@ -5,11 +5,13 @@
   of unrelated migrations+dependent code on a shared database while enforcing
   installation ordering for dependent migrations."
   (:require [clojure.java.io :as io]
+            [clojure.set]
             [datomic.client.api :as d]
             [io.recbus.caribou.acyclic-digraph :as ad]
             [io.recbus.caribou.datomic-helpers :as helpers]))
 
 (defn- synthesize-root
+  "Add a single root node to the graph that depends on all roots in the graph."
   [mgraph]
   (assoc mgraph ::root (with-meta (ad/roots mgraph) {:basis nil})))
 
@@ -168,18 +170,19 @@
 (defn run-effect
   [conn effector step-fn context]
   (let [tx-metadata {:db/id "datomic.tx" ::effector effector}
-        trxor (fn [{tx-data :tx-data :as token}]
-                (when token
-                  (-> token
+        trxor (fn [{tx-data :tx-data :as context}]
+                (when context
+                  (-> context
                       (dissoc :tx-data)
                       ;; automatic tx on every iteration, perhaps degenerate w/ metadata.
                       (assoc :tx-result (d/transact conn {:tx-data (conj tx-data tx-metadata)})))))
-        results (iteration (comp trxor step-fn)
-                           :kf (fn [{{db :db-after} :tx-result :as token}]
-                                 (cond-> (dissoc token :tx-result)
-                                   db (assoc :db db)))
-                           :vf :tx-result :initk (assoc context :db (d/db conn)))]
-    (transduce identity helpers/rf-txs results)))
+        kf (fn [{{db :db-after} :tx-result :as context}]
+             (cond-> (dissoc context :tx-result)
+               db (assoc :db db)))]
+    (transduce identity helpers/rf-txs (iteration (comp trxor step-fn)
+                                                  :kf kf
+                                                  :vf :tx-result
+                                                  :initk (assoc context :db (d/db conn))))))
 
 (defn- execute*
   [conn graphL]
