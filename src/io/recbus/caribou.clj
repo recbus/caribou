@@ -74,7 +74,7 @@
 
 (defn install-root
   [conn]
-  (let [h (-> {} ->mgraph mghash ::root meta ::hash)]
+  (let [h (-> (transduce identity ->mgraph {}) mghash ::root meta ::hash)]
     (d/transact conn {:tx-data [{:db/id "root"
                                  ::name ::root
                                  ::dependencies #{}}
