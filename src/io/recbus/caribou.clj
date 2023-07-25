@@ -187,7 +187,7 @@
 
 (defn- execute*
   [conn graphL]
-  (loop [{r0 ::root :as graphR} (history! conn) out {}]
+  (loop [{r0 ::root :as graphR} (history! conn) out []]
     (let [mgraph (topological-sort (merge-graphs graphL graphR))
           [[k v :as m] & ms] (butlast (remove (comp :db/txid meta val) mgraph))]
       (if m
@@ -202,7 +202,7 @@
               tx-data (cond-> tx-data tx-fn (concat (tx-fn (assoc context :db db))))
               tx-order {:name k :hash hash :dependencies v :tx-data tx-data}]
           (if-let [{db :db-after :as result} (transact conn r0 r1 tx-order)]
-            (recur (history db) (assoc out k result))
+            (recur (history db) (conj out result))
             (recur (history! conn) out)))
         out))))
 
@@ -230,9 +230,10 @@
   "Execute the `migrations` against the Datomic connection `conn`, using the given `context` to
   augment the context passed to any migration transaction functions."
   [conn migrations context]
-  (->> (prepare migrations context)
-       mghash
-       (execute* conn)))
+  (let [results (->> (prepare migrations context)
+                     mghash
+                     (execute* conn))]
+    (transduce identity helpers/rf-txs results)))
 
 (defn status
   [db]

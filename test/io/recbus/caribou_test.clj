@@ -52,7 +52,7 @@
                                     :db/valueType :db.type/string
                                     :db/cardinality :db.cardinality/one}]
                          :dependencies []}}]
-    (let [{{db :db-after} ::A} (sut/execute! *connection* migrations {})]
+    (let [{db :db-after} (sut/execute! *connection* migrations {})]
       (is (= {::sut/root #{::A},
 	      ::A #{}}
              (sut/history db))))))
@@ -62,12 +62,12 @@
                                     :db/valueType :db.type/string
                                     :db/cardinality :db.cardinality/one}]
                          :dependencies []}}]
-    (let [{{db :db-after} ::A} (sut/execute! *connection* migrations {})]
-      (is (= 1732701487 (-> (sut/status (d/db *connection*)) ::sut/hash))))))
+    (let [{db :db-after} (sut/execute! *connection* migrations {})]
+      (is (= 1732701487 (-> (sut/status db) ::sut/hash))))))
 
 (deftest migrate-reference
-  (let [{{db :db-after} ::A} (sut/execute! *connection* reference-migrations {})]
-    (is (= -211898652 (-> (sut/status (d/db *connection*)) ::sut/hash)))))
+  (let [{db :db-after} (sut/execute! *connection* reference-migrations {})]
+    (is (= -211898652 (-> (sut/status db) ::sut/hash)))))
 
 #_{:st.update/state+county-name {:step-fn      st.migrations.state+county-name/assert-tuple-components
                                  :context      {:batch-size 1000}
