@@ -51,10 +51,10 @@
         c (fn topological-order [x y] (compare (.indexOf tsort x) (.indexOf tsort y)))]
     (into (sorted-map-by c) mgraph)))
 
-(defn install-tracking-entity
+(defn- install-schema
   [conn]
   (d/transact conn {:tx-data [{:db/ident ::name
-                               :db/doc "The name of the this migration"
+                               :db/doc "The name of this migration"
                                :db/valueType :db.type/keyword
                                :db/unique :db.unique/identity
                                :db/cardinality :db.cardinality/one}
@@ -70,11 +70,15 @@
                               {:db/ident ::effector
                                :db/doc "The name of the migration that effected this transaction"
                                :db/valueType :db.type/keyword
-                               :db/cardinality :db.cardinality/one}]})
+                               :db/cardinality :db.cardinality/one}]}))
+
+(defn install-root
+  [conn]
   (let [h (-> {} ->mgraph mghash ::root meta ::hash)]
-    (d/transact conn {:tx-data [{::name ::root
-                                 ::hash h
-                                 ::dependencies #{}}]})))
+    (d/transact conn {:tx-data [{:db/id "root"
+                                 ::name ::root
+                                 ::dependencies #{}}
+                                [:db/cas "root" ::hash nil h]]})))
 
 (defn history
   "Fetch the complete history of migrations from the given database."
@@ -83,48 +87,47 @@
   ;; hash values) and to extract the outstanding migrations.  There is no strict
   ;; requirement to download the entire history to perform those tasks.
   [db]
-  (try (let [rules '[[(walk ?from ?attr ?to)
-                      [?from ?attr ?to]]
-                     [(walk ?from ?attr ?to)
-                      [?from ?attr ?intermediate]
-                      (walk ?intermediate ?attr ?to)]
+  (let [rules '[[(walk ?from ?attr ?to)
+                 [?from ?attr ?to]]
+                [(walk ?from ?attr ?to)
+                 [?from ?attr ?intermediate]
+                 (walk ?intermediate ?attr ?to)]
 
-                     [(migration ?root ?meid)
-                      [(identity ?root) ?meid]]
-                     [(migration ?root ?meid)
-                      (walk ?root ::dependencies ?meid)]]
-             ms (d/q {:query '[:find ?tx (pull ?meid [::hash ::name {::dependencies [::name]}])
-                               :in $ %
-                               :where
-                               , [?root ::name ::root]
-                               , (migration ?root ?meid)
-                               , [?meid ::hash _ ?tx]]
-                      :args [db rules]})
-             tsort (map (comp ::name second) (sort-by first ms))
-             xform (map (fn [[tx {::keys [hash name dependencies]}]]
-                          (let [dependencies (map ::name dependencies)]
-                            [name (with-meta (set dependencies) {:db/txid tx ::hash hash})])))]
-         (into {} xform ms))
-       (catch clojure.lang.ExceptionInfo e
-         (when-not (= [:cognitect.anomalies/incorrect :db.error/not-an-entity]
-                      ((juxt :cognitect.anomalies/category :db/error) (ex-data e)))
-           (throw e)))))
+                [(migration ?root ?meid)
+                 [(identity ?root) ?meid]]
+                [(migration ?root ?meid)
+                 (walk ?root ::dependencies ?meid)]]
+        ms (d/q {:query '[:find ?tx (pull ?meid [::hash ::name {::dependencies [::name]}])
+                          :in $ %
+                          :where
+                          , [?root ::name ::root]
+                          , (migration ?root ?meid)
+                          , [?meid ::hash _ ?tx]]
+                 :args [db rules]})
+        tsort (map (comp ::name second) (sort-by first ms))
+        xform (map (fn [[tx {::keys [hash name dependencies]}]]
+                     (let [dependencies (map ::name dependencies)]
+                       [name (with-meta (set dependencies) {:db/txid tx ::hash hash})])))]
+    (into {} xform ms)))
 
 (defn- history!
   [conn]
-  (let [db (d/db conn)
-        retry-limit 1]
-    (if-let [h (history db)]
-      h
-      (loop [retries 5] ; brute force to get the tracking entity in place
-        (let [result (try (install-tracking-entity conn)
-                          (catch Exception e e))]
-          (if (instance? Exception result)
-            (if (<= retries retry-limit)
-              (do (Thread/sleep (* retries (rand-int 10)))
-                  (recur (inc retries)))
-              (throw (ex-info "Unable to install schema tracking entity" {:retries retries} result)))
-            (history! conn)))))))
+  (let [db (d/db conn)]
+    (try (let [h (history db)]
+           (if (empty? h)
+             (let [{db :db-after} (install-root conn)]
+               (history db))
+             h))
+         (catch clojure.lang.ExceptionInfo e
+           (let [{error :db/error :keys [e a v v-old]
+                  cancelled? :datomic/cancelled
+                  category :cognitect.anomalies/category} (ex-data e)]
+             (case [category error]
+               [:cognitect.anomalies/incorrect :db.error/not-an-entity] (do (try (install-schema conn)
+                                                                                 (catch Exception _))
+                                                                            (history! conn))
+               [:cognitect.anomalies/conflict :db.error/cas-failed] (history! conn)
+               (throw e)))))))
 
 (defn- transact
   [conn r0 r1 {:keys [name hash dependencies tx-data]}]
@@ -143,8 +146,8 @@
            (let [{error :db/error :keys [e a v v-old]
                   cancelled? :datomic/cancelled
                   category :cognitect.anomalies/category} (ex-data ex)]
-             (if (= [:cognitect.anomalies/conflict true :db.error/cas-failed [::name ::root] ::hash]
-                    [category cancelled? error e a])
+             (if (= [:cognitect.anomalies/conflict :db.error/cas-failed true [::name ::root] ::hash]
+                    [category error cancelled? e a])
                (do (tap> {:msg "Conflict transacting migration, continuing." ::name name})
                    nil)
                (do (tap> {:msg "Failed to transact migration" :ex ex ::name name ::root-transition (map (comp ::hash meta) [r0 r1])})
