@@ -56,7 +56,7 @@
   (d/transact conn {:tx-data [{:db/ident ::name
                                :db/doc "The name of the this migration"
                                :db/valueType :db.type/keyword
-                               :db/unique :db.unique/value
+                               :db/unique :db.unique/identity
                                :db/cardinality :db.cardinality/one}
                               {:db/ident ::hash
                                :db/doc "The hash of the migration (sub-) tree rooted here"
@@ -72,8 +72,7 @@
                                :db/valueType :db.type/keyword
                                :db/cardinality :db.cardinality/one}]})
   (let [h (-> {} ->mgraph mghash ::root meta ::hash)]
-    (d/transact conn {:tx-data [{:db/ident ::root
-                                 ::name ::root
+    (d/transact conn {:tx-data [{::name ::root
                                  ::hash h
                                  ::dependencies #{}}]})))
 
@@ -84,23 +83,27 @@
   ;; hash values) and to extract the outstanding migrations.  There is no strict
   ;; requirement to download the entire history to perform those tasks.
   [db]
-  (try (let [rules '[[(migration ?root ?meid)
-                      [?meid :db/ident ?root]]
+  (try (let [rules '[[(walk ?from ?attr ?to)
+                      [?from ?attr ?to]]
+                     [(walk ?from ?attr ?to)
+                      [?from ?attr ?intermediate]
+                      (walk ?intermediate ?attr ?to)]
+
                      [(migration ?root ?meid)
-                      [?root ::dependencies ?meid]]
+                      [(identity ?root) ?meid]]
                      [(migration ?root ?meid)
-                      (migration ?root ?pmeid)
-                      [?pmeid ::dependencies ?meid]]]
+                      (walk ?root ::dependencies ?meid)]]
              ms (d/q {:query '[:find ?tx (pull ?meid [::hash ::name {::dependencies [::name]}])
-                               :in $ ?root %
+                               :in $ %
                                :where
+                               , [?root ::name ::root]
                                , (migration ?root ?meid)
                                , [?meid ::hash _ ?tx]]
-                      :args [db ::root rules]})
+                      :args [db rules]})
              tsort (map (comp ::name second) (sort-by first ms))
              xform (map (fn [[tx {::keys [hash name dependencies]}]]
                           (let [dependencies (map ::name dependencies)]
-                            [(or name ::root) (with-meta (set dependencies) {:db/txid tx ::hash hash})])))]
+                            [name (with-meta (set dependencies) {:db/txid tx ::hash hash})])))]
          (into {} xform ms))
        (catch clojure.lang.ExceptionInfo e
          (when-not (= [:cognitect.anomalies/incorrect :db.error/not-an-entity]
@@ -125,9 +128,9 @@
 
 (defn- transact
   [conn r0 r1 {:keys [name hash dependencies tx-data]}]
-  (let [subsumed (map (fn [sd] [:db/retract ::root ::dependencies [::name sd]]) (clojure.set/difference r0 r1))
-        tx-data (concat tx-data [{:db/ident ::root ::dependencies #{"migration"}}
-                                 [:db/cas ::root ::hash (-> r0 meta ::hash) (-> r1 meta ::hash)]
+  (let [subsumed (map (fn [sd] [:db/retract [::name ::root] ::dependencies [::name sd]]) (clojure.set/difference r0 r1))
+        tx-data (concat tx-data [{::name ::root ::dependencies #{"migration"}}
+                                 [:db/cas [::name ::root] ::hash (-> r0 meta ::hash) (-> r1 meta ::hash)]
                                  {:db/id "migration"
                                   ::name name
                                   ::hash hash
@@ -140,7 +143,7 @@
            (let [{error :db/error :keys [e a v v-old]
                   cancelled? :datomic/cancelled
                   category :cognitect.anomalies/category} (ex-data ex)]
-             (if (= [:cognitect.anomalies/conflict true :db.error/cas-failed ::root ::hash]
+             (if (= [:cognitect.anomalies/conflict true :db.error/cas-failed [::name ::root] ::hash]
                     [category cancelled? error e a])
                (do (tap> {:msg "Conflict transacting migration, continuing." ::name name})
                    nil)

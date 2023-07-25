@@ -69,10 +69,9 @@
   (let [{db :db-after} (sut/execute! *connection* reference-migrations {})]
     (is (= -211898652 (-> (sut/status db) ::sut/hash)))))
 
-#_{:st.update/state+county-name {:step-fn      st.migrations.state+county-name/assert-tuple-components
-                                 :context      {:batch-size 1000}
-                                 :dependencies [:st.schema/state+county-name]}}
-
-{::B {:tx-data-fn (constantly {:db/ident ::b
-                               :db/valueType :db.type/string
-                               :db/cardinality :db.cardinality/one})}}
+(deftest migrate-reference-in-two-steps
+  (let [m0 (select-keys reference-migrations [:st.schema/tx-metadata :st.schema/user :st.schema/generator])
+        m1 reference-migrations
+        {db :db-after} (sut/execute! *connection* m0 {})
+        {db :db-after} (sut/execute! *connection* reference-migrations {})]
+    (is (= -211898652 (-> (sut/status db) ::sut/hash)))))
