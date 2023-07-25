@@ -48,7 +48,7 @@
     (edn/read {:readers readers} r)))
 
 (deftest history-reports-migration-graph
-  (let [migrations {::A {:tx-data [{:db/ident ::a
+  (let [migrations {::A {:tx-data [{:db/ident ::my-attr
                                     :db/valueType :db.type/string
                                     :db/cardinality :db.cardinality/one}]
                          :dependencies []}}]
@@ -58,12 +58,12 @@
              (sut/history db))))))
 
 (deftest persisted-hash-is-stable
-  (let [migrations {::A {:tx-data [{:db/ident ::a
+  (let [migrations {::A {:tx-data [{:db/ident ::my-attr
                                     :db/valueType :db.type/string
                                     :db/cardinality :db.cardinality/one}]
                          :dependencies []}}]
     (let [{db :db-after} (sut/execute! *connection* migrations {})]
-      (is (= 1732701487 (-> (sut/status db) ::sut/hash))))))
+      (is (= -1096714776 (-> (sut/status db) ::sut/hash))))))
 
 (deftest migrate-reference
   (let [{db :db-after} (sut/execute! *connection* reference-migrations {})]
@@ -75,3 +75,62 @@
         {db :db-after} (sut/execute! *connection* m0 {})
         {db :db-after} (sut/execute! *connection* reference-migrations {})]
     (is (= -211898652 (-> (sut/status db) ::sut/hash)))))
+
+(deftest migrations-are-independent-transactions
+  (let [m0 {::A {:tx-data [{:db/ident ::my-attr
+                            :db/valueType :db.type/string
+                            :db/cardinality :db.cardinality/one}]
+                 :dependencies []}
+            ::B {:tx-data [{::nothing "a"}]
+                 :dependencies [::A]}}
+        e (try (sut/execute! *connection* m0 {})
+               (catch Exception e e))]
+    (is (instance? Exception e))
+    (let [status (sut/status (d/db *connection*))]
+      (is (= -1096714776 (-> status ::sut/hash)) status))))
+
+(deftest identity-extends-to-content
+  (let [m0 {::A {:tx-data [{:db/ident ::my-attr
+                            :db/valueType :db.type/string
+                            :db/cardinality :db.cardinality/one}]
+                 :dependencies []}
+            ::B {:tx-data [{::my-attr "b"}]
+                 :dependencies [::A]}}
+        {db :db-after} (sut/execute! *connection* m0 {})]
+    (let [status (sut/status db)]
+      (is (= -941745976 (-> status ::sut/hash)) status)))
+  (let [m1 {::A {:tx-data [{:db/ident ::my-attr
+                            :db/valueType :db.type/string
+                            :db/cardinality :db.cardinality/one}]
+                 :dependencies []}
+            ::B {:tx-data [{::my-attr "bb"}]
+                 :dependencies [::A]}}
+        e (try (sut/execute! *connection* m1 {})
+               (catch java.lang.AssertionError e e))
+        db (d/db *connection*)]
+    (let [status (sut/status db)]
+      (is (= -941745976 (-> status ::sut/hash)) status))))
+
+(deftest identity-extends-to-structure
+  (let [m0 {::A {:tx-data [{:db/ident ::my-attr
+                            :db/valueType :db.type/string
+                            :db/cardinality :db.cardinality/one}]
+                 :dependencies []}
+            ::B {:tx-data [{::my-attr "b"}]
+                 :dependencies [::A]}}
+        {db :db-after} (sut/execute! *connection* m0 {})]
+    (let [status (sut/status db)]
+      (is (= -941745976 (-> status ::sut/hash)) status)))
+  (let [m1 {::A {:tx-data [{:db/ident ::my-attr
+                            :db/valueType :db.type/string
+                            :db/cardinality :db.cardinality/one}]
+                 :dependencies []}
+            ::B {:tx-data [{::my-attr "b"}]
+                 :dependencies [::A ::C]}
+            ::C {:tx-data [{::my-attr "c"}]
+                 :dependencies [::A]}}
+        e (try (sut/execute! *connection* m1 {})
+               (catch java.lang.AssertionError e e))
+        db (d/db *connection*)]
+    (let [status (sut/status db)]
+      (is (= -941745976 (-> status ::sut/hash)) status))))
