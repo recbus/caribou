@@ -243,7 +243,7 @@
 
 (defn status
   [db]
-  (let [hash (-> (d/pull db '[*] [::name ::root]) ::hash)]
-    {::hash hash
-     ::history (history db)
+  (let [h (history db)]
+    {::hash (-> h ::root meta ::hash)
+     ::history h
      ::tree (d/pull db '[::name {::dependencies ...}] [::name ::root])}))
