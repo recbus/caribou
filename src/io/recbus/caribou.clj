@@ -73,6 +73,7 @@
                                :db/cardinality :db.cardinality/one}]})
   (let [h (-> {} ->mgraph mghash ::root meta ::hash)]
     (d/transact conn {:tx-data [{:db/ident ::root
+                                 ::name ::root
                                  ::hash h
                                  ::dependencies #{}}]})))
 
@@ -235,5 +236,7 @@
 
 (defn status
   [db]
-  (let [hash (-> (d/pull db '[*] ::root) ::hash)]
-    [hash {}]))
+  (let [hash (-> (d/pull db '[*] [::name ::root]) ::hash)]
+    {::hash hash
+     ::history (history db)
+     ::tree (d/pull db '[::name {::dependencies ...}] [::name ::root])}))

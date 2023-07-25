@@ -63,11 +63,11 @@
                                     :db/cardinality :db.cardinality/one}]
                          :dependencies []}}]
     (let [{{db :db-after} ::A} (sut/execute! *connection* migrations {})]
-      (is (= [1732701487 {}] (sut/status (d/db *connection*)))))))
+      (is (= 1732701487 (-> (sut/status (d/db *connection*)) ::sut/hash))))))
 
 (deftest migrate-reference
   (let [{{db :db-after} ::A} (sut/execute! *connection* reference-migrations {})]
-    (is (= [-211898652 {}] (sut/status (d/db *connection*))))))
+    (is (= -211898652 (-> (sut/status (d/db *connection*)) ::sut/hash)))))
 
 #_{:st.update/state+county-name {:step-fn      st.migrations.state+county-name/assert-tuple-components
                                  :context      {:batch-size 1000}
