@@ -97,17 +97,16 @@
                  [(identity ?root) ?meid]]
                 [(migration ?root ?meid)
                  (walk ?root ::dependencies ?meid)]]
-        ms (d/q {:query '[:find ?tx (pull ?meid [::hash ::name {::dependencies [::name]}])
+        ms (d/q {:query '[:find (pull ?meid [:db/id ::hash ::name {::dependencies [::name]}])
                           :in $ %
                           :where
                           , [?root ::name ::root]
-                          , (migration ?root ?meid)
-                          , [?meid ::hash _ ?tx]]
+                          , (migration ?root ?meid)]
                  :args [db rules]})
-        tsort (map (comp ::name second) (sort-by first ms))
-        xform (map (fn [[tx {::keys [hash name dependencies]}]]
-                     (let [dependencies (map ::name dependencies)]
-                       [name (with-meta (set dependencies) {:db/txid tx ::hash hash})])))]
+        xform (comp (map first)
+                    (map (fn [{::keys [hash name dependencies] eid :db/id}]
+                           (let [dependencies (map ::name dependencies)]
+                             [name (with-meta (set dependencies) {:db/id eid ::hash hash})]))))]
     (into {} xform ms)))
 
 (defn- history!
@@ -131,9 +130,10 @@
 
 (defn- transact
   [conn r0 r1 {:keys [name hash dependencies tx-data]}]
-  (let [subsumed (map (fn [sd] [:db/retract [::name ::root] ::dependencies [::name sd]]) (clojure.set/difference r0 r1))
+  (let [root-eid (-> r0 meta :db/id)
+        subsumed (map (fn [sd] [:db/retract root-eid ::dependencies [::name sd]]) (clojure.set/difference r0 r1))
         tx-data (concat tx-data [{::name ::root ::dependencies #{"migration"}}
-                                 [:db/cas [::name ::root] ::hash (-> r0 meta ::hash) (-> r1 meta ::hash)]
+                                 [:db/cas root-eid ::hash (-> r0 meta ::hash) (-> r1 meta ::hash)]
                                  {:db/id "migration"
                                   ::name name
                                   ::hash hash
@@ -146,7 +146,7 @@
            (let [{error :db/error :keys [e a v v-old]
                   cancelled? :datomic/cancelled
                   category :cognitect.anomalies/category} (ex-data ex)]
-             (if (= [:cognitect.anomalies/conflict :db.error/cas-failed true [::name ::root] ::hash]
+             (if (= [:cognitect.anomalies/conflict :db.error/cas-failed true root-eid ::hash]
                     [category error cancelled? e a])
                (do (tap> {:msg "Conflict transacting migration, continuing." ::name name})
                    nil)
@@ -195,7 +195,7 @@
   [conn graphL]
   (loop [{r0 ::root :as graphR} (history! conn) out []]
     (let [mgraph (topological-sort (merge-graphs graphL graphR))
-          [[k v :as m] & ms] (butlast (remove (comp :db/txid meta val) mgraph))]
+          [[k v :as m] & ms] (butlast (remove (comp :db/id meta val) mgraph))]
       (if m
         (let [{r1 ::root} (-> (reduce (fn [mgraph k] (dissoc mgraph k))
                                       (dissoc mgraph ::root)
