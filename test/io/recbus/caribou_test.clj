@@ -158,3 +158,13 @@
           {db :db-after} (sut/execute! *connection* m0 {})]
       (let [status (sut/status db)]
         (is (= 2145712772 (-> status ::sut/hash)) status)))))
+
+(deftest assess
+  (let [m0 (dissoc reference-migrations :st.schema/document-usage)
+        m1 reference-migrations
+        {db :db-after} (sut/execute! *connection* m0 {})]
+    (is (= [[-211898652 1013102628]
+	    {:common-count 27,
+	     :only-remote #{},
+	     :only-local #{:st.schema/document-usage}}]
+           (sut/assess db m1 {})))))

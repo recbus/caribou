@@ -159,7 +159,6 @@
                                   ::dependencies (map (fn [m] [::name+epoch [m *epoch*]]) dependencies)}]
                         subsumed)]
     (try (let [{:keys [tx-data] :as result} (d/transact conn {:tx-data tx-data})]
-           (tap> {:msg "Transacted migration" ::datom-count (count tx-data) ::name name ::root-transition (map (comp ::hash meta) [r0 r1])})
            result)
          (catch clojure.lang.ExceptionInfo ex
            (let [{error :db/error :keys [e a v v-old]
@@ -167,13 +166,10 @@
                   category :cognitect.anomalies/category} (ex-data ex)]
              (if (= [:cognitect.anomalies/conflict :db.error/cas-failed true root-eid ::hash]
                     [category error cancelled? e a])
-               (do (tap> {:msg "Conflict transacting migration, continuing." ::name name})
-                   nil)
-               (do (tap> {:msg "Failed to transact migration" :ex ex ::name name ::root-transition (map (comp ::hash meta) [r0 r1])})
-                   (throw ex)))))
+               nil ;; "Conflict transacting migration, continuing."
+               (throw (ex-info "Failed to transact migration" {::name name ::root-transition (map (comp ::hash meta) [r0 r1])} ex)))))
          (catch Exception ex
-           (do (tap> {:msg "Failed to transact migration" :ex ex ::name name ::root-transition (map (comp ::hash meta) [r0 r1])})
-               (throw ex))))))
+           (throw (ex-info "Failed to transact migration" {::name name ::root-transition (map (comp ::hash meta) [r0 r1])} ex))))))
 
 (defn- merge-graphs
   [graphL graphR]
@@ -188,7 +184,6 @@
                         (assoc m k (validating-meta-merge k (get m k) v))
                         (assoc m k v)))
         [onlyL common onlyR] (ad/gdiff (dissoc graphL ::root) (dissoc graphR ::root))]
-    (tap> {:msg "Migrations assessed." ::migrations {:common-count (count common) :only-remote onlyR :only-local onlyL}})
     (-> (reduce merge-entry (dissoc graphL ::root) (dissoc graphR ::root))
         synthesize-root
         mghash)))
@@ -260,10 +255,49 @@
                      (execute* conn))]
     (transduce identity helpers/rf-txs results)))
 
-(defn status
+(defn analyze
+  "Analyze the provided `migrations` in the given `context`."
+  [migrations context]
+  (let [{root ::root :as m} (->> (prepare migrations context)
+                                 mghash)]
+    [(-> root meta ::hash) m]))
+
+(defn tx-report
+  "Show transaction details of the applied migrations."
   [db]
-  (let [h (history db)]
+  (let [txs (d/q {:query '[:find ?name ?tx ?txinstant ?hash
+                           :in $ ?epoch
+                           :where
+                           , [?meid ::name ?name ?tx]
+                           , [?meid ::hash ?hash ?tx] ; forcing the ?tx to match eliminates ::root
+                           , [?meid ::epoch ?epoch]
+                           , [?tx :db/txInstant ?txinstant]]
+                  :args [db *epoch*]})
+        ordering (into {} (map (fn [[n _ tx-instant & _]] [n tx-instant])) txs)
+        c (fn [m0 m1] (compare [(ordering m0) m0] [(ordering m1) m1]))]
+    (into (sorted-map-by c)
+          (comp (map (fn [[nym tx txinstant h]] [nym {:id tx :txInstant txinstant :hash h}])))
+          txs)))
+
+(defn status
+  "Report the migration status of the database `db`."
+  [db]
+  (let [h (history db)
+        tree (d/pull db '[::name {::dependencies ...}] [::name+epoch [::root *epoch*]])]
     {::hash (-> h ::root meta ::hash)
      ::epoch *epoch*
-     ::history h
-     ::tree (d/pull db '[::name {::dependencies ...}] [::name+epoch [::root *epoch*]])}))
+     ::tx-report (tx-report db)
+     ::dependency-tree tree}))
+
+(defn assess
+  "Assess the current migration state of the database `db` against the given `migrations`,
+  evaluated in the given `context`.  Returns a vector of the local and remote database migration
+  hashes and a map showing the only-local, common and only-remote (db) migrations."
+  [db migrations context]
+  (let [{rL ::root :as graphL} (->> (prepare migrations context)
+                                    mghash)
+        {rR ::root :as graphR} (history db)
+        outstanding (butlast (remove (comp :db/id meta val) (topological-sort (merge-graphs graphL graphR))))
+        [onlyL common onlyR] (ad/gdiff (dissoc graphL ::root) (dissoc graphR ::root))]
+    [[(-> rL meta ::hash) (-> rR meta ::hash)]
+     {:common-count (count common) :only-remote onlyR :only-local onlyL}]))
