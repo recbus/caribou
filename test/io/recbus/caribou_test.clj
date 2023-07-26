@@ -134,3 +134,27 @@
         db (d/db *connection*)]
     (let [status (sut/status db)]
       (is (= -941745976 (-> status ::sut/hash)) status))))
+
+(deftest epoch-roots-are-independent
+  (binding [sut/*epoch* 0]
+    (let [m0 {::A0 {:tx-data [{:db/ident ::my-attr0
+                               :db/valueType :db.type/string
+                               :db/cardinality :db.cardinality/one}]
+                    :dependencies []}
+              ::B0 {:tx-data [{::my-attr0 "b"}]
+                    :dependencies [::A0]}}
+          {db :db-after} (sut/execute! *connection* m0 {})]
+      (let [status (sut/status db)]
+        (is (= -1445663044 (-> status ::sut/hash)) status))))
+  (binding [sut/*epoch* 1]
+    (let [m0 {::A0 {:tx-data [{:db/ident ::my-attr0
+                               :db/valueType :db.type/string
+                               :db/cardinality :db.cardinality/one}]
+                    :dependencies []}
+              ::B0 {:tx-data [{::my-attr0 "b"}]
+                    :dependencies [::A0 ::C0]} ; w/o epoch independence, this would be a redefinition of ::B0
+              ::C0 {:tx-data [{::my-attr0 "c"}]
+                    :dependencies [::A0]}}
+          {db :db-after} (sut/execute! *connection* m0 {})]
+      (let [status (sut/status db)]
+        (is (= 2145712772 (-> status ::sut/hash)) status)))))

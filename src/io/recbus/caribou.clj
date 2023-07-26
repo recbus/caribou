@@ -10,6 +10,8 @@
             [io.recbus.caribou.acyclic-digraph :as ad]
             [io.recbus.caribou.datomic-helpers :as helpers]))
 
+(def ^:dynamic *epoch* 0)
+
 (defn- synthesize-root
   "Add a single root node to the graph that depends on all roots in the graph."
   [mgraph]
@@ -56,13 +58,27 @@
   (d/transact conn {:tx-data [{:db/ident ::name
                                :db/doc "The name of this migration"
                                :db/valueType :db.type/keyword
-                               :db/unique :db.unique/identity
+                               :db/cardinality :db.cardinality/one}
+                              {:db/ident ::epoch
+                               :db/doc "The epoch of this migration"
+                               :db/valueType :db.type/long
                                :db/cardinality :db.cardinality/one}
                               {:db/ident ::hash
                                :db/doc "The hash of the migration (sub-) tree rooted here"
                                :db/valueType :db.type/long
-                               :db/unique :db.unique/value
                                :db/cardinality :db.cardinality/one}
+                              {:db/ident ::name+epoch
+                               :db/doc "The tuple of the name of this migration and the epoch"
+                               :db/valueType :db.type/tuple
+                               :db/tupleAttrs [::name ::epoch]
+                               :db/cardinality :db.cardinality/one
+                               :db/unique :db.unique/identity}
+                              {:db/ident ::hash+epoch
+                               :db/doc "The tuple of the hash of this migration and the epoch"
+                               :db/valueType :db.type/tuple
+                               :db/tupleAttrs [::hash ::epoch]
+                               :db/cardinality :db.cardinality/one
+                               :db/unique :db.unique/value}
                               {:db/ident ::dependencies
                                :db/doc "The dependencies of this migration"
                                :db/valueType :db.type/ref
@@ -77,6 +93,7 @@
   (let [h (-> (transduce identity ->mgraph {}) mghash ::root meta ::hash)]
     (d/transact conn {:tx-data [{:db/id "root"
                                  ::name ::root
+                                 ::epoch *epoch*
                                  ::dependencies #{}}
                                 [:db/cas "root" ::hash nil h]]})))
 
@@ -98,11 +115,12 @@
                 [(migration ?root ?meid)
                  (walk ?root ::dependencies ?meid)]]
         ms (d/q {:query '[:find (pull ?meid [:db/id ::hash ::name {::dependencies [::name]}])
-                          :in $ %
+                          :in $ % ?epoch
                           :where
                           , [?root ::name ::root]
+                          , [?root ::epoch ?epoch]
                           , (migration ?root ?meid)]
-                 :args [db rules]})
+                 :args [db rules *epoch*]})
         xform (comp (map first)
                     (map (fn [{::keys [hash name dependencies] eid :db/id}]
                            (let [dependencies (map ::name dependencies)]
@@ -131,13 +149,14 @@
 (defn- transact
   [conn r0 r1 {:keys [name hash dependencies tx-data]}]
   (let [root-eid (-> r0 meta :db/id)
-        subsumed (map (fn [sd] [:db/retract root-eid ::dependencies [::name sd]]) (clojure.set/difference r0 r1))
-        tx-data (concat tx-data [{::name ::root ::dependencies #{"migration"}}
+        subsumed (map (fn [sd] [:db/retract root-eid ::dependencies [::name+epoch [sd *epoch*]]]) (clojure.set/difference r0 r1))
+        tx-data (concat tx-data [{:db/id root-eid ::name ::root ::epoch *epoch* ::dependencies #{"migration"}}
                                  [:db/cas root-eid ::hash (-> r0 meta ::hash) (-> r1 meta ::hash)]
                                  {:db/id "migration"
                                   ::name name
                                   ::hash hash
-                                  ::dependencies (map (fn [m] [::name m]) dependencies)}]
+                                  ::epoch *epoch*
+                                  ::dependencies (map (fn [m] [::name+epoch [m *epoch*]]) dependencies)}]
                         subsumed)]
     (try (let [{:keys [tx-data] :as result} (d/transact conn {:tx-data tx-data})]
            (tap> {:msg "Transacted migration" ::datom-count (count tx-data) ::name name ::root-transition (map (comp ::hash meta) [r0 r1])})
@@ -245,5 +264,6 @@
   [db]
   (let [h (history db)]
     {::hash (-> h ::root meta ::hash)
+     ::epoch *epoch*
      ::history h
-     ::tree (d/pull db '[::name {::dependencies ...}] [::name ::root])}))
+     ::tree (d/pull db '[::name {::dependencies ...}] [::name+epoch [::root *epoch*]])}))
