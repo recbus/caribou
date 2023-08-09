@@ -216,10 +216,9 @@
                                       (reverse (keys ms)))
                               synthesize-root
                               mghash)
-              {::keys [hash] :keys [tx-data step-fn tx-fn context]} (meta v)
+              {::keys [hash] :keys [tx-data step-fn context]} (meta v)
               db (or (when step-fn (:db-after (run-effect conn k step-fn context)))
                      (d/db conn))
-              tx-data (cond-> tx-data tx-fn (concat (tx-fn (assoc context :db db))))
               tx-order {:name k :hash hash :dependencies v :tx-data tx-data}]
           (if-let [{db :db-after :as result} (transact conn r0 r1 tx-order)]
             (recur (history db) (conj out result))
@@ -239,10 +238,9 @@
                     (map (fn expand-tx [[k {:keys [tx-data tx-data-fn context] :as m}]]
                            [k (cond-> (dissoc m :tx-data-fn)
                                 tx-data-fn (update :tx-data concat (tx-data-fn context)))]))
-                    (map (fn identify-basis [[k {:keys [tx-data tx-fn step-fn] :as v}]]
+                    (map (fn identify-basis [[k {:keys [tx-data step-fn] :as v}]]
                            ;; identity is tx content + migration name (when unstable fns are present)
                            [k (assoc v :basis (cond-> {:tx-data tx-data}
-                                                tx-fn (assoc :tx-fn k)
                                                 step-fn (assoc :step-fn k)))])))]
     (transduce xform ->mgraph migrations)))
 
