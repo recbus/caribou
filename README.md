@@ -3,7 +3,8 @@
 Being confident about the shape of your database can dramatically simplify your application code.  In conjunction with state management
 tools like [Component](https://github.com/stuartsierra/component) or [Integrant](https://github.com/weavejester/integrant), Caribou
 allows you to express transformations that must be performed exactly once prior to your application startup.  Caribou enforces these
-intransients while retaining maximum deployment flexibility and supporting parallel development of independent features.
+intransients while retaining maximum deployment flexibility, supporting parallel development of independent features and preserving
+a faithful record of historical migrations.
 
 The driving principles behind caribou are:
 
@@ -14,10 +15,10 @@ The driving principles behind caribou are:
 ## Migrations are arbitrary transactions
 Migrations must be atomic, consistent, isolated and durable (ACID) and so caribou encourages you to represent a migration
 as a single transaction.  Otherwise caribou is unopinionated, allowing the transaction data to be schema changes, seed data
-additions, etc.
+additions, domain data corrections, etc.
 
-Migration transaction data can be either literal data (`tx-data`) or the return value of a (presumably pure) supplied `tx-data-fn`
-function.  Transaction data can include attributes of the transaction itself (a "reified" transaction).
+Migration transaction data can be either literal data (`tx-data`) or the return value of a (presumably pure) user-supplied
+`tx-data-fn` function.  Transaction data can include attributes of the transaction itself (a "reified" transaction).
 
 ## Migrations are best expressed as a dependency graph
 "Later" migrations can depend on prior migrations.  For example, in order to transact seed data (migration "B") the underlying
@@ -26,9 +27,8 @@ migration "C" might be totally independent of schema migration "D".  It is valua
 independent migrations -especially when working on teams building independent features.
 
 In caribou, topological sorting of the migration dependency *graph* informs the order in which migrations are applied when multiple
-migrations are pending.  And because a migration dependency graph may have multiple valid topological sorts when independent
-migrations are present, caribou allows the history of applied migrations to vary as long as the order is a valid topological 
-sorting.
+migrations are pending.  And because a migration dependency graph may have multiple valid topological sorts, caribou allows the 
+history of applied migrations to vary as long as the order is a valid topological sort.
 
 Consider the following migrations, where each key is the name of a migration and its dependencies are the associated value:
 
@@ -38,9 +38,9 @@ Consider the following migrations, where each key is the name of a migration and
  :C #{:A}
  :D #{:B :C}}
 ```
-In this example, there are two possible orders: `[:A :C :B :D]` and `[:A :B :C :D]`.  By allowing either order, caribou allows
-the features associated with migrations `:B` and `:C` to be developed and deployed in any order.  This flexibility can even allow
-parallel development against a shared database.
+In this example, there are two equally valid ordering of migrations (`[:A :C :B :D]` and `[:A :B :C :D]`).  By tolerating either 
+order, caribou allows the features associated with migrations `:B` and `:C` to be developed and deployed in any order.  This 
+flexibility can even allow parallel development against a shared database.
 
 ## The only reliable record of prior migrations is the database itself
 It's tempting to assume that the source of migration transaction data is a reliable record of the applied migrations.
@@ -50,13 +50,14 @@ However, reality sometimes intrudes on this ideal with human error being the pri
  * a migration under development is accidentally applied (hopefully never to a production database!!);
  * an un-repeatable source of migration data is accidentally transacted.
  
-As bad as these mistakes are, they are compounded exponentially when they go unnoticed.  Caribou always verifies the cryptographic
-signature of migration source data with the signature recorded in the database at the time the migration was performed.  If they
-differ, caribou refuses to proceed until either the correct source data is restored or a new epoch is declared -at which point the
-database state is the sole source of truth for prior migrations and new migrations start a new dependency graph.
+As bad as these mistakes are, they are compounded exponentially when they go unnoticed.  Caribou always verifies the 
+cryptographic signature of migration source data with the signature recorded in the database at the time the migration
+was performed.  If they differ, caribou refuses to proceed until either the correct source data is restored or a new 
+epoch is declared -at which point the database state is the sole source of truth for prior migrations and new migrations
+start a new dependency graph.
 
 ### Expressing Migrations
-The caribou migration graph is represented as a map of `<migration name>` to `<migration attributes>`.  Idiomatically this graph
+The caribou migration graph is represented as a map of `<migration name>` to `<migration datas>`.  Idiomatically this graph
 is pure data stored in an [edn](https://github.com/edn-format/edn) file that is read at system startup with, e.g. 
 [clojure.edn/read](https://clojuredocs.org/clojure.edn/read) or [aero](https://github.com/juxt/aero).
 
@@ -76,14 +77,14 @@ _step-fn_        = A qualified symbol naming an opaque step function satisfying 
 _context_        = arbitrary Clojure data passed to _tx-data-fn_ or _step-fn_.
 
 #### Migration Example
-Here's a simple example of migration data:
+Here's a simple example of a single migration:
 
 ``` clojure
 {...
  :st.schema/state+county-numeric     {:tx-data
                                       [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
                                        {:db/ident       :st.county/state+county-numeric,
-                                        :db/doc "The tuple of state (a reference) and county-numeric that uniquely identifies this county",
+                                        :db/doc         "The tuple of state (a reference) and county-numeric that uniquely identifies this county",
                                         :db/valueType   :db.type/tuple,
                                         :db/tupleAttrs  [:st.county/state :ansi.fips/county-numeric],
                                         :db/cardinality :db.cardinality/one,
@@ -92,14 +93,16 @@ Here's a simple example of migration data:
 ...}
 ```
 
-In the above example, the migration named `:st.schema/state+county-numeric` adds a schema attribute and transaction metadata.  It declares two dependencies whose role can be inferred from the tx data (adding the `:st.db/provenance` schema attribute used in the metadata and adding the two constituent schema attributes `:st.county/state` & `:ansi.fips/county-numeric`).
+In the above example, the migration named `:st.schema/state+county-numeric` adds a schema attribute and transaction metadata.  It
+declares two dependencies whose role can be inferred from the tx data (adding the `:st.db/provenance` to the transaction metadata 
+and adding a tuple schema attribute).
 
 ##### Notes on various means of defining the migration transaction(s).
 A migration can define its transaction data in three ways.
 
 1. `:tx-data`
 Transaction data defined at the `:tx-data` key is semantically identical to the `:tx-data` given to `d/transact`.  For schema migrations
-and other low-volume/hand-crafted data, this is an effective way to define a migration.  With data/configuration reading tools (e.g. 
+and other low-volume or hand-crafted data, this is an effective way to define a migration.  With data/configuration reading tools (e.g. 
 [aero](https://github.com/juxt/aero#include), integrant) or some pre-processing, it's possible to include subordinate EDN files directly
 in your migration data so as to keep the clutter in your top-level migration file to a minimum.
 
@@ -131,16 +134,26 @@ d. If the step function returns nil or false, iteration is halted.
 Once a migration has been applied, do not change its source data.  The correlation of each applied migration to its source data is a
 fundamental feature of caribou.
 
-To ensure that the critical source record is not corrupt (relative to the actual transacted data) caribou computes a cryptographic hash of
-each migration and transacts it along wth the migration's transaction data payload and dependency structure.  If the hash computed locally
-from the source data does not match the recorded hash in the database, caribou will throw an exception and refuse to apply any further
-migrations.  If this happens you have two options:
+To ensure that the critical source data is not corrupt (relative to the actual transacted data) caribou computes the signature (a 
+cryptographic hash) of each migration and transacts it along wth the migration's transaction data payload.  This signature authenticates
+the transaction data of the migration (whether supplied directly by `:tx-data` or returned by `:tx-data-fn`) as well as its (recursive)
+dependencies.  Note that even though Datomic has two ways of expressing transaction data (entity maps and datom vectors) the signature
+is computed from the Clojure data structures used to express the transaction data, not the resulting datoms.  You cannot switch from entity
+maps to datom vectors without changing the signature of a migration.
+
+The hash of a `:step-fn` migration is a special case: caribou considers the step function's presence in a migration and ignores its side 
+effects and even its symbol name (thus allowing for namespace refactors).  Beware of this limitation when you really care about "identical" 
+database shapes across time and database instances.  Step functions are intended for cases where off-book (outside Datomic) side effects must
+be coordinated with database transactions.
+
+If the hash computed locally from the source data does not match the recorded hash in the database _for any applied migration in the same
+epoch_, caribou will throw an exception and refuse to apply any further migrations.  If this happens you have two options:
 
 a. Restore or reconstitute the migration source data that generated the transacted migrations.
 b. Declare a new epoch.
 
-Declaring a new epoch acknowledges the fact that the state of the database has irrevocably diverged from any available source data.  This 
-is a bitter pill to swallow, particularly for testing, as the migration state of the database can't be reproduced.  Avoid it vigorously.  But
-if you must, it's possible to start a new epoch with an empty migration data source (map) by binding the dynamic variable `*io.recbus.caribou/epoch*`
-to a value other than zero.  Thereafter, all existing migrations from the previous epoch (zero, by default) are ignored and new migrations
-can be applied.
+Declaring a new epoch acknowledges that the state of the database has irrevocably diverged from any available source data.  This is a bitter
+pill to swallow, particularly for testing, as the migration state of the database can't be reproduced.  Avoid it vigorously.  But if you must, 
+it is possible to start a new epoch with an empty migration data source (map) by incrementing the dynamic variable `*io.recbus.caribou/epoch*` 
+to a value greater than any previously transacted migration.  Thereafter, all existing migrations from the previous epoch (zero, by default) 
+are ignored and new migrations can be applied.
