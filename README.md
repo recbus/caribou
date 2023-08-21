@@ -73,7 +73,9 @@ is pure data stored in an [edn](https://github.com/edn-format/edn) file that is 
 | _step-fn_        | A qualified symbol naming an opaque step function satisfying the requirements of [clojure.core/iteration](https://www.juxt.pro/blog/new-clojure-iteration/) |
 |_context_         | arbitrary Clojure data passed to _tx-data-fn_ or _step-fn_ |
 
-#### Migration Example
+The _migration_data_ map has no strictly required keys and all keys can be present simultaneously.  The return value of each invocation of the `step-fn` will be transacted independently *before* the concatenation of the literal `tx-data` and the return value of `tx-data-fn`.
+
+#### Migration Data Example
 Here's a simple example of a single migration:
 
 ``` clojure
@@ -154,3 +156,21 @@ pill to swallow, particularly for testing, as the migration state of the databas
 it is possible to start a new epoch with an empty migration data source (map) by incrementing the dynamic variable `*io.recbus.caribou/epoch*` 
 to a value greater than any previously transacted migration.  Thereafter, all existing migrations from the previous epoch (zero, by default) 
 are ignored and new migrations can be applied.
+
+#### Function Reference
+The primary API of caribou is only one function: `io.recbus.caribou/execute!`.
+
+``` clojure
+(execute conn migrations context)
+```
+
+It is possible to omit the `context` parameter, in which case it is assumed to be an empty map (`{}`).
+
+There are also several queries available to help understand the migration state of a given database.  Perhaps the most useful of these is
+the `io.recbus.caribou/assess` query, which returns a map as follows
+
+``` clojure
+{:common-count "The count of identical migrations in the local data source and the database."
+ :only-remote "The set of migrations (names) that are only present in the database.
+ :only-local "The set of migrations (names) that are only present in the local data source.}
+```
