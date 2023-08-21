@@ -30,7 +30,7 @@ In caribou, topological sorting of the migration dependency *graph* informs the 
 migrations are pending.  And because a migration dependency graph may have multiple valid topological sorts, caribou allows the 
 history of applied migrations to vary as long as the order is a valid topological sort.
 
-Consider the following migrations, where each key is the name of a migration and its dependencies are the associated value:
+Consider the following migrations, where each key is the name of a migration and its dependencies are the associated value (a set):
 
 ``` clojure
 {:A #{}
@@ -43,8 +43,8 @@ order, caribou allows the features associated with migrations `:B` and `:C` to b
 flexibility can even allow parallel development against a shared database.
 
 ## The only reliable record of prior migrations is the database itself
-It's tempting to assume that the source of migration transaction data is a reliable record of the applied migrations.
-However, reality sometimes intrudes on this ideal with human error being the primary culprit: 
+It is tempting to assume that the source (idiomatically, an EDN data file) of migration transaction data is a reliable record
+of the applied migrations.  However, reality sometimes intrudes on this ideal with, human error being the primary culprit: 
 
  * a bad merge changes the migration source files;
  * a migration under development is accidentally applied (hopefully never to a production database!!);
@@ -62,19 +62,16 @@ is pure data stored in an [edn](https://github.com/edn-format/edn) file that is 
 [clojure.edn/read](https://clojuredocs.org/clojure.edn/read) or [aero](https://github.com/juxt/aero).
 
 #### Migration Reference
-_migration_      = {_migration-name_ _migration-data_}
-_migration-name_ = a Clojure keyword.
-_migration-data_ = {`:tx-data` _tx-data_
-                    `:tx-data-fn` _tx-data-fn_
-                    `:dependencies` _dependencies_
-					`:step-fn` _step-fn_
-                    `:context` _context_}
-_tx-data_        = Datomic transaction data with the same constraints as those of `d/transact`.
-_tx-data-fn_     = A qualified symbol naming a pure function of _context_ that returns _tx-data_.
-_dependencies_   = A Clojure set of the migration's dependencies referenced by _migration_name_.
-_step-fn_        = A qualified symbol naming an opaque step function satisfying the requirements
-                   of [clojure.core/iteration](https://www.juxt.pro/blog/new-clojure-iteration/).
-_context_        = arbitrary Clojure data passed to _tx-data-fn_ or _step-fn_.
+| term  | definition  |
+|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| _migration_      | {_migration-name_ _migration-data_} |
+| _migration-name_ | a Clojure keyword. |
+| _migration-data_ | {`:tx-data` _tx-data_, `:tx-data-fn` _tx-data-fn_, `:dependencies` _dependencies_, `:step-fn` _step-fn_, `:context` _context_} |
+| _tx-data_        | Datomic [transaction data](https://docs.datomic.com/cloud/transactions/transaction-data-reference.html) with the same constraints as those of [datomic.client.api/transact](https://docs.datomic.com/client-api/datomic.client.api.html#var-transact) |
+| _tx-data-fn_     | A qualified symbol naming a pure function of _context_ that returns _tx-data_ |
+| _dependencies_   | A Clojure set of the migration's dependencies referenced by _migration_name_ |
+| _step-fn_        | A qualified symbol naming an opaque step function satisfying the requirements of [clojure.core/iteration](https://www.juxt.pro/blog/new-clojure-iteration/) |
+|_context_         | arbitrary Clojure data passed to _tx-data-fn_ or _step-fn_ |
 
 #### Migration Example
 Here's a simple example of a single migration:
