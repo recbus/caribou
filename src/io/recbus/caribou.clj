@@ -247,11 +247,12 @@
 (defn execute!
   "Execute the `migrations` against the Datomic connection `conn`, using the given `context` to
   augment the context passed to any migration transaction functions."
-  [conn migrations context]
-  (let [results (->> (prepare migrations context)
-                     mghash
-                     (execute* conn))]
-    (transduce identity helpers/rf-txs results)))
+  ([conn migrations] (execute! conn migrations {}))
+  ([conn migrations context]
+   (let [results (->> (prepare migrations context)
+                      mghash
+                      (execute* conn))]
+     (transduce identity helpers/rf-txs results))))
 
 (defn analyze
   "Analyze the provided `migrations` in the given `context`."
