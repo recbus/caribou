@@ -1,10 +1,9 @@
 # Caribou - A hardy migrator
 
-Being confident about the shape of your database can dramatically simplify your application code.  In conjunction with state management
-tools like [Component](https://github.com/stuartsierra/component) or [Integrant](https://github.com/weavejester/integrant), Caribou
-allows you to express transformations that must be performed exactly once prior to your application startup.  Caribou enforces these
-intransients while retaining maximum deployment flexibility, supporting parallel development of independent features and preserving
-a faithful record of historical migrations.
+Being confident about the shape of your database can dramatically simplify your application code.  Caribou allows you to express
+schema, seed data and data correction transformations that must be performed exactly once.  Caribou enforces these intransients
+while retaining maximum deployment flexibility, supporting concurrent development of independent features and preserving a faithful
+record of historical migrations.
 
 The driving principles behind caribou are:
 
@@ -13,22 +12,22 @@ The driving principles behind caribou are:
 3. and that the only reliable record of prior migrations is the database itself.
 
 ## Migrations are arbitrary transactions
-Migrations must be atomic, consistent, isolated and durable (ACID) and so caribou encourages you to represent a migration
-as a single transaction.  Otherwise caribou is unopinionated, allowing the transaction data to be schema changes, seed data
+Migrations must be atomic, consistent, isolated and durable (ACID) and so caribou encourages you to represent each migration
+as a *single* transaction.  Otherwise caribou is unopinionated, allowing the transaction data to be schema changes, seed data
 additions, domain data corrections, etc.
 
 Migration transaction data can be either literal data (`tx-data`) or the return value of a (presumably pure) user-supplied
 `tx-data-fn` function.  Transaction data can include attributes of the transaction itself (a "reified" transaction).
 
 ## Migrations are best expressed as a dependency graph
-"Later" migrations can depend on prior migrations.  For example, in order to transact seed data (migration "B") the underlying
+"Later" migrations can depend on "prior" migrations.  For example, in order to transact seed data (migration "B") the underlying
 schema (migration "A") must have been previously transacted.  But migrations are not simply a linear chain of dependencies: schema
 migration "C" might be totally independent of schema migration "D".  It is valuable to preserve the flexibility inherent in
 independent migrations -especially when working on teams building independent features.
 
 In caribou, topological sorting of the migration dependency *graph* informs the order in which migrations are applied when multiple
 migrations are pending.  And because a migration dependency graph may have multiple valid topological sorts, caribou allows the 
-history of applied migrations to vary as long as the order is a valid topological sort.
+history of applied migrations to vary as long as the order is a valid topological sort of the migrations source data.
 
 Consider the following migrations, where each key is the name of a migration and its dependencies are the associated value (a set):
 
@@ -39,8 +38,9 @@ Consider the following migrations, where each key is the name of a migration and
  :D #{:B :C}}
 ```
 In this example, there are two equally valid ordering of migrations (`[:A :C :B :D]` and `[:A :B :C :D]`).  By tolerating either 
-order, caribou allows the features associated with migrations `:B` and `:C` to be developed and deployed in any order.  This 
-flexibility can even allow parallel development against a shared database.
+order, caribou allows the features associated with migrations `:B` and `:C` to be developed and deployed in any order: independent
+migrations can be applied to a shared database in any order, and merging of the migrations data source (a map) is less precarious
+since the order of migrations doesn't matter.
 
 ## The only reliable record of prior migrations is the database itself
 It is tempting to assume that the source (idiomatically, an EDN data file) of migration transaction data is a reliable record
