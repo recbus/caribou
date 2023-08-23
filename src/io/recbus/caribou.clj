@@ -68,13 +68,13 @@
                                :db/valueType :db.type/long
                                :db/cardinality :db.cardinality/one}
                               {:db/ident ::name+epoch
-                               :db/doc "The tuple of the name of this migration and the epoch"
+                               :db/doc "The tuple of the name and the epoch of this migration"
                                :db/valueType :db.type/tuple
                                :db/tupleAttrs [::name ::epoch]
                                :db/cardinality :db.cardinality/one
                                :db/unique :db.unique/identity}
                               {:db/ident ::hash+epoch
-                               :db/doc "The tuple of the hash of this migration and the epoch"
+                               :db/doc "The tuple of the hash and the epoch of this migration"
                                :db/valueType :db.type/tuple
                                :db/tupleAttrs [::hash ::epoch]
                                :db/cardinality :db.cardinality/one
@@ -84,7 +84,7 @@
                                :db/valueType :db.type/ref
                                :db/cardinality :db.cardinality/many}
                               {:db/ident ::effector
-                               :db/doc "The name of the migration that effected this transaction"
+                               :db/doc "The name of the migration whose step-fn effected this transaction"
                                :db/valueType :db.type/keyword
                                :db/cardinality :db.cardinality/one}]}))
 
