@@ -159,6 +159,18 @@
       (let [status (sut/status db)]
         (is (= 2145712772 (-> status ::sut/hash)) status)))))
 
+(deftest claim-existing-database
+  (let [m0 {::A {:tx-data [{:db/ident ::my-attr
+                            :db/valueType :db.type/string
+                            :db/cardinality :db.cardinality/one}]
+                 :dependencies []}
+            ::B {:tx-data [{::my-attr "b"}]
+                 :dependencies [::A]}}
+        {db :db-after} (sut/claim! *connection* m0 {})]
+    (let [status (sut/status db)]
+      (is (= -941745976 (-> status ::sut/hash)) status)
+      (is (nil? (-> (d/pull db '[*] ::my-attr) :db/id))))))
+
 (deftest assess
   (let [m0 (dissoc reference-migrations :st.schema/document-usage)
         m1 reference-migrations

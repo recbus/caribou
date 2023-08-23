@@ -167,15 +167,14 @@ caribou and your existing database into agreement:
  * CONS: there is no ability to recreate the database shape from scratch using just caribou.
 2. Forensically reconstruct the existing shape as one or more caribou migrations.  This might be as easy as translating
 some existing EDN files into a shape suitable for caribou.  It might be as complex as painstakingly hand-crafting tx-data 
-to match the results of querying your existing database.  Once caribou migration data has been crafted that recreates the 
-existing database shape, consider it epoch zero.  Start new migrations at epoch one in a separate migrations map.
- * PROS: by sequentially applying epoch zero then epoch one, the existing (production) database shape can be recreated.
- The existing shape can be extend by only applying epoch one.
- * CONS: only epoch one is properly documented in the existing database as caribou migration entities -epoch zero can
- never be applied on the production database; two consecutive executions of `io.recbus.caribou/execute!` are needed to
- shape a fresh database.
-3. As in option two above, forensically recreate your existing shape as caribou migration(s).  Then, manually create 
-caribou's migration entities but without the associated `tx-data`.
+to match the results of querying the existing database.  Once caribou migration data has been crafted that recreates the 
+existing database shape, execute `io.recbus.caribou/claim!` to transact "catch-up" migration marker entities but without 
+the associated migration `tx-data`.
+ * PROS: the existing (production) database shape can be recreated, assuming the forensically constructed migrations are
+ accurate.
+ * CONS: forensically reconstructing caribou migration data for the existing database shape can be tedious; in the pre-
+ existing database, caribou's "catch-up" migration transactions are only markers -no actual "payload" datoms will be
+ associated with the transaction.
 
 #### Function Reference
 The primary API of caribou is only one function: `io.recbus.caribou/execute!`.

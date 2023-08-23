@@ -245,12 +245,30 @@
     (transduce xform ->mgraph migrations)))
 
 (defn execute!
-  "Execute the `migrations` against the Datomic connection `conn`, using the given `context` to
-  augment the context passed to any migration transaction functions."
+  "Execute the `migrations` against the Datomic connection `conn` and passing the given `context` to
+  any `:tx-data-fn` or `:step-fn`."
   ([conn migrations] (execute! conn migrations {}))
   ([conn migrations context]
    (let [results (->> (prepare migrations context)
                       mghash
+                      (execute* conn))]
+     (transduce identity helpers/rf-txs results))))
+
+(defn- strip-tx-data
+  "Remove the effective transaction data from the given `migrations`."
+  [migrations]
+  {:pre [(map? migrations)]}
+  (into {} (map (fn [[k m]] [k (vary-meta m update :tx-data empty)])) migrations))
+
+(defn claim!
+  "Execute the `migrations` against the Datomic connection `conn` and passing the given `context` to
+  any `:tx-data-fn` or `:step-fn`.  Unlike `execute!`, this function will suppress the actual
+  transaction data of all migrations and *only* transact caribou's own migration marker entities."
+  ([conn migrations] (execute! conn migrations {}))
+  ([conn migrations context]
+   (let [results (->> (prepare migrations context)
+                      mghash
+                      strip-tx-data
                       (execute* conn))]
      (transduce identity helpers/rf-txs results))))
 
