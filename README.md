@@ -69,7 +69,7 @@ is pure data stored in an [edn](https://github.com/edn-format/edn) file that is 
 | _migration-data_ | {`:tx-data` _tx-data_, `:tx-data-fn` _tx-data-fn_, `:dependencies` _dependencies_, `:step-fn` _step-fn_, `:context` _context_} |
 | _tx-data_        | Datomic [transaction data](https://docs.datomic.com/cloud/transactions/transaction-data-reference.html) with the same constraints as those of [datomic.client.api/transact](https://docs.datomic.com/client-api/datomic.client.api.html#var-transact) |
 | _tx-data-fn_     | A qualified symbol naming a pure function of _context_ that returns _tx-data_ |
-| _dependencies_   | A Clojure set of the migration's dependencies referenced by _migration_name_ |
+| _dependencies_   | A Clojure collection of the migration's dependencies referenced by _migration_name_ |
 | _step-fn_        | A qualified symbol naming an opaque step function satisfying the requirements of [clojure.core/iteration](https://www.juxt.pro/blog/new-clojure-iteration/) |
 |_context_         | arbitrary Clojure data passed to _tx-data-fn_ or _step-fn_ |
 
@@ -190,6 +190,6 @@ the `io.recbus.caribou/assess` query, which returns a map as follows
 
 ``` clojure
 {:common-count "The count of identical migrations in the local data source and the database."
- :only-remote "The set of migrations (names) that are only present in the database.
- :only-local "The set of migrations (names) that are only present in the local data source.}
+ :only-remote "The set of migrations (names) that are only present in the database."
+ :only-local "The set of migrations (names) that are only present in the local data source."}
 ```
