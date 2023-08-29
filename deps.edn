@@ -7,8 +7,7 @@
  :paths ["src" "resources"]
 
  :aliases {:dev {:extra-paths ["classes" "dev" "dev-resources"]
-                 :extra-deps  {com.datomic/dev-local  {:local/root "vendor/jars/dev-local-1.0.242.jar"}
-                               io.github.nubank/morse {:git/tag "v2023.04.30.01" :git/sha "d99b09c"}}
+                 :extra-deps  {com.datomic/dev-local  {:local/root "vendor/jars/dev-local-1.0.242.jar"}}
                  :jvm-opts    [;; https://www.metosin.fi/blog/missing-stacktraces
                                "-XX:-OmitStackTraceInFastThrow"]}
 
@@ -26,8 +25,7 @@
            :test {:extra-paths ["classes" "test" "test-resources"]
                   :extra-deps  {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
                                 com.datomic/dev-local               {:local/root "vendor/jars/dev-local-1.0.242.jar"}
-                                org.clojure/data.csv                {:mvn/version "1.0.1"}
-                                org.clojure/test.check              {:mvn/version "1.1.1"}}
+                                org.clojure/data.csv                {:mvn/version "1.0.1"}}
                   :jvm-opts    ["-XX:-OmitStackTraceInFastThrow"]}
 
            :test-runner {:extra-deps {com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
