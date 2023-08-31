@@ -7,7 +7,8 @@
  :paths ["src" "resources"]
 
  :aliases {:dev {:extra-paths ["classes" "dev" "dev-resources"]
-                 :extra-deps  {com.datomic/dev-local  {:local/root "vendor/jars/dev-local-1.0.242.jar"}}
+                 :extra-deps  {com.datomic/local      {:mvn/version "1.0.267"}
+                               com.google.guava/guava {:mvn/version "31.0.1-jre"}}
                  :jvm-opts    [;; https://www.metosin.fi/blog/missing-stacktraces
                                "-XX:-OmitStackTraceInFastThrow"]}
 
@@ -24,7 +25,8 @@
 
            :test {:extra-paths ["classes" "test" "test-resources"]
                   :extra-deps  {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
-                                com.datomic/dev-local               {:local/root "vendor/jars/dev-local-1.0.242.jar"}
+                                com.datomic/local                   {:mvn/version "1.0.267"}
+                                com.google.guava/guava              {:mvn/version "31.0.1-jre"}
                                 org.clojure/data.csv                {:mvn/version "1.0.1"}}
                   :jvm-opts    ["-XX:-OmitStackTraceInFastThrow"]}
 

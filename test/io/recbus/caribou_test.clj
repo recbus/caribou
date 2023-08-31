@@ -3,7 +3,7 @@
             [clojure.java.io :as io]
             [clojure.test :refer [deftest is use-fixtures]]
             [datomic.client.api :as d]
-            [datomic.dev-local :as dl]
+            [datomic.local :as dl]
             [io.recbus.caribou :as sut])
   (:import (java.net URI URL)))
 
