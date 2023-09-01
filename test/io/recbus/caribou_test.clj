@@ -29,7 +29,7 @@
   [f]
   (let [system "caribou"
         db-name "caribou"
-        client (d/client {:server-type :dev-local
+        client (d/client {:server-type :datomic-local
                           :storage-dir :mem
                           :system system})]
     (d/create-database client {:db-name db-name})
