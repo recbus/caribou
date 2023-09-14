@@ -191,3 +191,14 @@
                          :dependencies []}}]
     (let [{{tx "datomic.tx"} :tempids db :db-after} (sut/migrate! *connection* migrations :tx-instant t)]
       (is (= #:db{:txInstant t} (d/pull db [:db/txInstant] tx))))))
+
+(deftest race-condition
+  (let [migrations {::A {:tx-data [{:db/ident ::my-attr
+                                    :db/valueType :db.type/string
+                                    :db/cardinality :db.cardinality/one}]
+                         :dependencies []}}
+        empty-history (#'sut/history! *connection* {})]
+    (sut/migrate! *connection* migrations)
+    (is (= {:tempids {}, :tx-data []}
+           (with-redefs [sut/history! (constantly empty-history)]
+             (sut/migrate! *connection* migrations))))))

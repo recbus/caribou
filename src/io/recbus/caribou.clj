@@ -225,7 +225,7 @@
           (when step-fn (run-effect conn k step-fn context))
           (if-let [{db :db-after :as result} (transact conn r0 r1 tx-order)]
             (recur (history db) (conj out result))
-            (recur (history! conn options) out)))
+            (recur (history (d/db conn)) out)))
         out))))
 
 (defn prepare
