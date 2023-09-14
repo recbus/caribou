@@ -52,7 +52,7 @@
                                     :db/valueType :db.type/string
                                     :db/cardinality :db.cardinality/one}]
                          :dependencies []}}]
-    (let [{db :db-after} (sut/execute! *connection* migrations {})]
+    (let [{db :db-after} (sut/migrate! *connection* migrations)]
       (is (= {::sut/root #{::A},
 	      ::A #{}}
              (sut/history db))))))
@@ -62,18 +62,18 @@
                                     :db/valueType :db.type/string
                                     :db/cardinality :db.cardinality/one}]
                          :dependencies []}}]
-    (let [{db :db-after} (sut/execute! *connection* migrations {})]
+    (let [{db :db-after} (sut/migrate! *connection* migrations)]
       (is (= -1096714776 (-> (sut/status db) ::sut/hash))))))
 
 (deftest migrate-reference
-  (let [{db :db-after} (sut/execute! *connection* reference-migrations {})]
+  (let [{db :db-after} (sut/migrate! *connection* reference-migrations {})]
     (is (= -211898652 (-> (sut/status db) ::sut/hash)))))
 
 (deftest migrate-reference-in-two-steps
   (let [m0 (select-keys reference-migrations [:st.schema/tx-metadata :st.schema/user :st.schema/generator])
         m1 reference-migrations
-        {db :db-after} (sut/execute! *connection* m0 {})
-        {db :db-after} (sut/execute! *connection* reference-migrations {})]
+        {db :db-after} (sut/migrate! *connection* m0 {})
+        {db :db-after} (sut/migrate! *connection* reference-migrations {})]
     (is (= -211898652 (-> (sut/status db) ::sut/hash)))))
 
 (deftest migrations-are-independent-transactions
@@ -83,7 +83,7 @@
                  :dependencies []}
             ::B {:tx-data [{::nothing "a"}]
                  :dependencies [::A]}}
-        e (try (sut/execute! *connection* m0 {})
+        e (try (sut/migrate! *connection* m0 {})
                (catch Exception e e))]
     (is (instance? Exception e))
     (let [status (sut/status (d/db *connection*))]
@@ -96,7 +96,7 @@
                  :dependencies []}
             ::B {:tx-data [{::my-attr "b"}]
                  :dependencies [::A]}}
-        {db :db-after} (sut/execute! *connection* m0 {})]
+        {db :db-after} (sut/migrate! *connection* m0 {})]
     (let [status (sut/status db)]
       (is (= -941745976 (-> status ::sut/hash)) status)))
   (let [m1 {::A {:tx-data [{:db/ident ::my-attr
@@ -105,7 +105,7 @@
                  :dependencies []}
             ::B {:tx-data [{::my-attr "bb"}]
                  :dependencies [::A]}}
-        e (try (sut/execute! *connection* m1 {})
+        e (try (sut/migrate! *connection* m1 {})
                (catch java.lang.AssertionError e e))
         db (d/db *connection*)]
     (let [status (sut/status db)]
@@ -118,7 +118,7 @@
                  :dependencies []}
             ::B {:tx-data [{::my-attr "b"}]
                  :dependencies [::A]}}
-        {db :db-after} (sut/execute! *connection* m0 {})]
+        {db :db-after} (sut/migrate! *connection* m0 {})]
     (let [status (sut/status db)]
       (is (= -941745976 (-> status ::sut/hash)) status)))
   (let [m1 {::A {:tx-data [{:db/ident ::my-attr
@@ -129,7 +129,7 @@
                  :dependencies [::A ::C]}
             ::C {:tx-data [{::my-attr "c"}]
                  :dependencies [::A]}}
-        e (try (sut/execute! *connection* m1 {})
+        e (try (sut/migrate! *connection* m1 {})
                (catch java.lang.AssertionError e e))
         db (d/db *connection*)]
     (let [status (sut/status db)]
@@ -143,7 +143,7 @@
                     :dependencies []}
               ::B0 {:tx-data [{::my-attr0 "b"}]
                     :dependencies [::A0]}}
-          {db :db-after} (sut/execute! *connection* m0 {})]
+          {db :db-after} (sut/migrate! *connection* m0 {})]
       (let [status (sut/status db)]
         (is (= -1445663044 (-> status ::sut/hash)) status))))
   (binding [sut/*epoch* 1]
@@ -155,7 +155,7 @@
                     :dependencies [::A0 ::C0]} ; w/o epoch independence, this would be a redefinition of ::B0
               ::C0 {:tx-data [{::my-attr0 "c"}]
                     :dependencies [::A0]}}
-          {db :db-after} (sut/execute! *connection* m0 {})]
+          {db :db-after} (sut/migrate! *connection* m0 {})]
       (let [status (sut/status db)]
         (is (= 2145712772 (-> status ::sut/hash)) status)))))
 
@@ -166,7 +166,7 @@
                  :dependencies []}
             ::B {:tx-data [{::my-attr "b"}]
                  :dependencies [::A]}}
-        {db :db-after} (sut/claim! *connection* m0 {})]
+        {db :db-after} (sut/migrate! *connection* m0 :claim-only? true)]
     (let [status (sut/status db)]
       (is (= -941745976 (-> status ::sut/hash)) status)
       (is (nil? (-> (d/pull db '[*] ::my-attr) :db/id))))))
@@ -174,9 +174,19 @@
 (deftest assess
   (let [m0 (dissoc reference-migrations :st.schema/document-usage)
         m1 reference-migrations
-        {db :db-after} (sut/execute! *connection* m0 {})]
+        {db :db-after} (sut/migrate! *connection* m0 {})]
     (is (= [[-211898652 1013102628]
 	    {:common-count 27,
 	     :only-remote #{},
 	     :only-local #{:st.schema/document-usage}}]
            (sut/assess db m1 {})))))
+
+(deftest override-tx-instant
+  (let [migrations {::A {:tx-data [{:db/ident ::my-attr
+                                    :db/valueType :db.type/string
+                                    :db/cardinality :db.cardinality/one}]
+                         :dependencies []}}]
+    (let [{db :db-after} (sut/migrate! *connection* migrations :tx-instant #inst "2000-01-01")]
+      (is (= {::sut/root #{::A},
+	      ::A #{}}
+             (sut/history db))))))
