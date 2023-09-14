@@ -182,11 +182,12 @@
            (sut/assess db m1 {})))))
 
 (deftest override-tx-instant
-  (let [migrations {::A {:tx-data [{:db/ident ::my-attr
+  (let [t #inst "2000-01-01"
+        migrations {::A {:tx-data [{:db/id "datomic.tx"
+                                    :db/txInstant t}
+                                   {:db/ident ::my-attr
                                     :db/valueType :db.type/string
                                     :db/cardinality :db.cardinality/one}]
                          :dependencies []}}]
-    (let [{db :db-after} (sut/migrate! *connection* migrations :tx-instant #inst "2000-01-01")]
-      (is (= {::sut/root #{::A},
-	      ::A #{}}
-             (sut/history db))))))
+    (let [{{tx "datomic.tx"} :tempids db :db-after} (sut/migrate! *connection* migrations :tx-instant t)]
+      (is (= #:db{:txInstant t} (d/pull db [:db/txInstant] tx))))))

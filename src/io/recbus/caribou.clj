@@ -135,22 +135,20 @@
 
 (defn- history!
   [conn {:keys [tx-instant] :as options}]
-  (let [db (d/db conn)]
-    (try (let [h (history db)]
-           (if (empty? h)
-             (let [{db :db-after} (install-root conn tx-instant)]
-               (history db))
-             h))
-         (catch clojure.lang.ExceptionInfo e
-           (let [{error :db/error :keys [e a v v-old]
-                  cancelled? :datomic/cancelled
-                  category :cognitect.anomalies/category} (ex-data e)]
-             (case [category error]
-               [:cognitect.anomalies/incorrect :db.error/not-an-entity] (do (try (install-schema conn tx-instant)
-                                                                                 (catch Exception _))
-                                                                            (history! conn options))
-               [:cognitect.anomalies/conflict :db.error/cas-failed] (history! conn options)
-               (throw e)))))))
+  (let [signature #((juxt :cognitect.anomalies/category :db/error) (ex-data %))]
+    (let [h (try (history (d/db conn))
+                 (catch clojure.lang.ExceptionInfo e
+                   (if (= [:cognitect.anomalies/incorrect :db.error/not-an-entity] (signature e))
+                     (do (install-schema conn tx-instant)
+                         (history! conn options))
+                     (throw e))))]
+      (if (empty? h)
+        (do (try (install-root conn tx-instant)
+                 (catch clojure.lang.ExceptionInfo e
+                   (when-not (= [:cognitect.anomalies/conflict :db.error/unique-conflict] (signature e))
+                     (throw e))))
+            (history! conn options))
+        h))))
 
 (defn- transact
   [conn r0 r1 {:keys [name hash dependencies tx-data]}]
