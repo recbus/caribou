@@ -54,48 +54,54 @@
     (into (sorted-map-by c) mgraph)))
 
 (defn- install-schema
-  [conn]
-  (d/transact conn {:tx-data [{:db/ident ::name
-                               :db/doc "The name of this migration"
-                               :db/valueType :db.type/keyword
-                               :db/cardinality :db.cardinality/one}
-                              {:db/ident ::epoch
-                               :db/doc "The epoch of this migration"
-                               :db/valueType :db.type/long
-                               :db/cardinality :db.cardinality/one}
-                              {:db/ident ::hash
-                               :db/doc "The hash of the migration (sub-) tree rooted here"
-                               :db/valueType :db.type/long
-                               :db/cardinality :db.cardinality/one}
-                              {:db/ident ::name+epoch
-                               :db/doc "The tuple of the name and the epoch of this migration"
-                               :db/valueType :db.type/tuple
-                               :db/tupleAttrs [::name ::epoch]
-                               :db/cardinality :db.cardinality/one
-                               :db/unique :db.unique/identity}
-                              {:db/ident ::hash+epoch
-                               :db/doc "The tuple of the hash and the epoch of this migration"
-                               :db/valueType :db.type/tuple
-                               :db/tupleAttrs [::hash ::epoch]
-                               :db/cardinality :db.cardinality/one
-                               :db/unique :db.unique/value}
-                              {:db/ident ::dependencies
-                               :db/doc "The dependencies of this migration"
-                               :db/valueType :db.type/ref
-                               :db/cardinality :db.cardinality/many}
-                              {:db/ident ::effector
-                               :db/doc "The name of the migration whose step-fn effected this transaction"
-                               :db/valueType :db.type/keyword
-                               :db/cardinality :db.cardinality/one}]}))
+  [conn tx-instant]
+  (let [tx-data (cond-> [{:db/ident ::name
+                          :db/doc "The name of this migration"
+                          :db/valueType :db.type/keyword
+                          :db/cardinality :db.cardinality/one}
+                         {:db/ident ::epoch
+                          :db/doc "The epoch of this migration"
+                          :db/valueType :db.type/long
+                          :db/cardinality :db.cardinality/one}
+                         {:db/ident ::hash
+                          :db/doc "The hash of the migration (sub-) tree rooted here"
+                          :db/valueType :db.type/long
+                          :db/cardinality :db.cardinality/one}
+                         {:db/ident ::name+epoch
+                          :db/doc "The tuple of the name and the epoch of this migration"
+                          :db/valueType :db.type/tuple
+                          :db/tupleAttrs [::name ::epoch]
+                          :db/cardinality :db.cardinality/one
+                          :db/unique :db.unique/identity}
+                         {:db/ident ::hash+epoch
+                          :db/doc "The tuple of the hash and the epoch of this migration"
+                          :db/valueType :db.type/tuple
+                          :db/tupleAttrs [::hash ::epoch]
+                          :db/cardinality :db.cardinality/one
+                          :db/unique :db.unique/value}
+                         {:db/ident ::dependencies
+                          :db/doc "The dependencies of this migration"
+                          :db/valueType :db.type/ref
+                          :db/cardinality :db.cardinality/many}
+                         {:db/ident ::effector
+                          :db/doc "The name of the migration whose step-fn effected this transaction"
+                          :db/valueType :db.type/keyword
+                          :db/cardinality :db.cardinality/one}]
+                  tx-instant (conj {:db/id "datomic.tx"
+                                    :db/txInstant tx-instant}))]
+    (d/transact conn {:tx-data tx-data})))
 
 (defn install-root
-  [conn]
-  (let [h (-> (transduce identity ->mgraph {}) mghash ::root meta ::hash)]
-    (d/transact conn {:tx-data [{:db/id "root"
-                                 ::name ::root
-                                 ::epoch *epoch*
-                                 ::dependencies #{}}
-                                [:db/cas "root" ::hash nil h]]})))
+  [conn tx-instant]
+  (let [h (-> (transduce identity ->mgraph {}) mghash ::root meta ::hash)
+        tx-data (cond-> [{:db/id "root"
+                          ::name ::root
+                          ::epoch *epoch*
+                          ::dependencies #{}}
+                         [:db/cas "root" ::hash nil h]]
+                  tx-instant (conj {:db/id "datomic.tx"
+                                    :db/txInstant tx-instant}))]
+    (d/transact conn {:tx-data tx-data})))
 
 (defn history
   "Fetch the complete history of migrations from the given database."
@@ -128,11 +134,11 @@
     (into {} xform ms)))
 
 (defn- history!
-  [conn]
+  [conn {:keys [tx-instant] :as options}]
   (let [db (d/db conn)]
     (try (let [h (history db)]
            (if (empty? h)
-             (let [{db :db-after} (install-root conn)]
+             (let [{db :db-after} (install-root conn tx-instant)]
                (history db))
              h))
          (catch clojure.lang.ExceptionInfo e
@@ -140,10 +146,10 @@
                   cancelled? :datomic/cancelled
                   category :cognitect.anomalies/category} (ex-data e)]
              (case [category error]
-               [:cognitect.anomalies/incorrect :db.error/not-an-entity] (do (try (install-schema conn)
+               [:cognitect.anomalies/incorrect :db.error/not-an-entity] (do (try (install-schema conn tx-instant)
                                                                                  (catch Exception _))
-                                                                            (history! conn))
-               [:cognitect.anomalies/conflict :db.error/cas-failed] (history! conn)
+                                                                            (history! conn options))
+               [:cognitect.anomalies/conflict :db.error/cas-failed] (history! conn options)
                (throw e)))))))
 
 (defn- transact
@@ -206,8 +212,8 @@
                                                   :initk (assoc context :db (d/db conn))))))
 
 (defn- execute*
-  [conn graphL]
-  (loop [{r0 ::root :as graphR} (history! conn) out []]
+  [conn graphL & {:keys [tx-instant] :as options}]
+  (loop [{r0 ::root :as graphR} (history! conn options) out []]
     (let [mgraph (topological-sort (merge-graphs graphL graphR))
           [[k v :as m] & ms] (butlast (remove (comp :db/id meta val) mgraph))]
       (if m
@@ -222,55 +228,53 @@
               tx-order {:name k :hash hash :dependencies v :tx-data tx-data}]
           (if-let [{db :db-after :as result} (transact conn r0 r1 tx-order)]
             (recur (history db) (conj out result))
-            (recur (history! conn) out)))
+            (recur (history! conn options) out)))
         out))))
 
 (defn prepare
   "Prepare the `migrations` using the given `context` to augment the context passed to
   any migration transaction functions."
-  [migrations context]
-  (let [xform (comp (map (fn resolve-symbols [[k v]]
-                           [k (update-vals v #(if (qualified-symbol? %)
-                                                (requiring-resolve %)
-                                                %))]))
-                    (map (fn augment-context [[k v]]
-                           [k (update v :context merge context)]))
-                    (map (fn expand-tx [[k {:keys [tx-data tx-data-fn context] :as m}]]
-                           [k (cond-> (dissoc m :tx-data-fn)
-                                tx-data-fn (update :tx-data concat (tx-data-fn context)))]))
-                    (map (fn identify-basis [[k {:keys [tx-data step-fn] :as v}]]
-                           ;; identity is tx content + migration name (when unstable fns are present)
-                           [k (assoc v :basis (cond-> {:tx-data tx-data}
-                                                step-fn (assoc :step-fn k)))])))]
+  [migrations & {:keys [context claim-only?]}]
+  (let [xform (cond-> (comp (map (fn resolve-symbols [[k v]]
+                                   [k (update-vals v #(if (qualified-symbol? %)
+                                                        (requiring-resolve %)
+                                                        %))]))
+                            (map (fn augment-context [[k v]]
+                                   [k (update v :context merge context)]))
+                            (map (fn expand-tx [[k {:keys [tx-data tx-data-fn context] :as m}]]
+                                   [k (cond-> (dissoc m :tx-data-fn)
+                                        tx-data-fn (update :tx-data concat (tx-data-fn context)))]))
+                            (map (fn identify-basis [[k {:keys [tx-data step-fn] :as v}]]
+                                   ;; identity is tx content + migration name (when unstable fns are present)
+                                   [k (assoc v :basis (cond-> {:tx-data tx-data}
+                                                        step-fn (assoc :step-fn k)))])))
+                claim-only? (comp (map (fn strip-tx-data [[k v]] [k (update v :tx-data empty)]))))]
     (transduce xform ->mgraph migrations)))
 
-(defn execute!
+(defn migrate!
+  "Execute the `migrations` against the Datomic connection `conn` and passing the given `context` to
+  any `:tx-data-fn` or `:step-fn`."
+  [conn migrations & {:keys [tx-instant context claim-only?] :as options}]
+  (let [results (as-> migrations %
+                  (prepare % options)
+                  (mghash %)
+                  (execute* conn % options))]
+    (transduce identity helpers/rf-txs results)))
+
+(defn ^:deprecated execute!
   "Execute the `migrations` against the Datomic connection `conn` and passing the given `context` to
   any `:tx-data-fn` or `:step-fn`."
   ([conn migrations] (execute! conn migrations {}))
   ([conn migrations context]
-   (let [results (->> (prepare migrations context)
-                      mghash
-                      (execute* conn))]
-     (transduce identity helpers/rf-txs results))))
+   (migrate! conn migrations :context context)))
 
-(defn- strip-tx-data
-  "Remove the effective transaction data from the given `migrations`."
-  [migrations]
-  {:pre [(map? migrations)]}
-  (into {} (map (fn [[k m]] [k (vary-meta m update :tx-data empty)])) migrations))
-
-(defn claim!
+(defn ^:deprecated claim!
   "Execute the `migrations` against the Datomic connection `conn` and passing the given `context` to
   any `:tx-data-fn` or `:step-fn`.  Unlike `execute!`, this function will suppress the actual
   transaction data of all migrations and *only* transact caribou's own migration marker entities."
-  ([conn migrations] (execute! conn migrations {}))
+  ([conn migrations] (claim! conn migrations {}))
   ([conn migrations context]
-   (let [results (->> (prepare migrations context)
-                      mghash
-                      strip-tx-data
-                      (execute* conn))]
-     (transduce identity helpers/rf-txs results))))
+   (migrate! conn migrations :context context :claim-only? true)))
 
 (defn analyze
   "Analyze the provided `migrations` in the given `context`."
