@@ -221,9 +221,8 @@
                               synthesize-root
                               mghash)
               {::keys [hash] :keys [tx-data step-fn context]} (meta v)
-              db (or (when step-fn (:db-after (run-effect conn k step-fn context)))
-                     (d/db conn))
               tx-order {:name k :hash hash :dependencies v :tx-data tx-data}]
+          (when step-fn (run-effect conn k step-fn context))
           (if-let [{db :db-after :as result} (transact conn r0 r1 tx-order)]
             (recur (history db) (conj out result))
             (recur (history! conn options) out)))
