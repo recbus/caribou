@@ -168,8 +168,8 @@ caribou and your existing database into agreement:
 2. Forensically reconstruct the existing shape as one or more caribou migrations.  This might be as easy as translating
 some existing EDN files into a shape suitable for caribou.  It might be as complex as painstakingly hand-crafting tx-data 
 to match the results of querying the existing database.  Once caribou migration data has been crafted that recreates the 
-existing database shape, execute `io.recbus.caribou/claim!` to transact "catch-up" migration marker entities but without 
-the associated migration `tx-data`.
+existing database shape, execute `io.recbus.caribou/migrate!` with the `claim-only?` option set to `true`.  This will 
+transact "catch-up" migration marker entities but without the associated migration `tx-data`.
  * PROS: the existing (production) database shape can be recreated, assuming the forensically constructed migrations are
  accurate.
  * CONS: forensically reconstructing caribou migration data for the existing database shape can be tedious; in the pre-
@@ -177,13 +177,19 @@ the associated migration `tx-data`.
  associated with the transaction.
 
 #### Function Reference
-The primary API of caribou is only one function: `io.recbus.caribou/execute!`.
+The primary API of caribou is only one function: `io.recbus.caribou/migrate!`.
 
 ``` clojure
-(execute! conn migrations context)
+(migrate! conn migrations & {:keys [tx-instant context claim-only?] :as options})
 ```
-
 It is possible to omit the `context` parameter, in which case it is assumed to be an empty map (`{}`).
+
+If supplied, `tx-instant` overrides the `:db/txInstant` of the transactions that install Caribou's own schema
+and tracking entity.  It does _not_ override the `:db/txInstant` of your migrations -but that is easily accomplished
+with an appropriately reified migration transaction.
+
+The `claim-only?` option is used to inject Caribou migration records without actually transacting the associated `tx-data`.
+
 
 There are also several queries available to help understand the migration state of a given database.  Perhaps the most useful of these is
 the `io.recbus.caribou/assess` query, which returns a map as follows
