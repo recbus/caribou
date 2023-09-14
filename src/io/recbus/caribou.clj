@@ -153,17 +153,17 @@
 (defn- transact
   [conn r0 r1 {:keys [name hash dependencies tx-data]}]
   (let [root-eid (-> r0 meta :db/id)
+        tid (str "migration:" name)
         subsumed (map (fn [sd] [:db/retract root-eid ::dependencies [::name+epoch [sd *epoch*]]]) (clojure.set/difference r0 r1))
-        tx-data (concat tx-data [{:db/id root-eid ::name ::root ::epoch *epoch* ::dependencies #{"migration"}}
+        tx-data (concat tx-data [{:db/id root-eid ::name ::root ::epoch *epoch* ::dependencies #{tid}}
                                  [:db/cas root-eid ::hash (-> r0 meta ::hash) (-> r1 meta ::hash)]
-                                 {:db/id "migration"
+                                 {:db/id tid
                                   ::name name
                                   ::hash hash
                                   ::epoch *epoch*
                                   ::dependencies (map (fn [m] [::name+epoch [m *epoch*]]) dependencies)}]
                         subsumed)]
-    (try (let [{:keys [tx-data] :as result} (d/transact conn {:tx-data tx-data})]
-           result)
+    (try (d/transact conn {:tx-data tx-data})
          (catch clojure.lang.ExceptionInfo ex
            (let [{error :db/error :keys [e a v v-old]
                   cancelled? :datomic/cancelled
