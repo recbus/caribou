@@ -202,3 +202,27 @@
     (is (= {:tempids {}, :tx-data []}
            (with-redefs [sut/history! (constantly empty-history)]
              (sut/migrate! *connection* migrations))))))
+
+(deftest tx-data-fn
+  (let [migrations {::A {:tx-data [{:db/ident ::my-attr
+                                    :db/valueType :db.type/string
+                                    :db/cardinality :db.cardinality/one}]
+                         :dependencies []}
+                    ::B {:tx-data-fn (fn [& args] [{::my-attr "b"}])
+                         :dependencies [::A]}}]
+    (let [{db :db-after} (sut/migrate! *connection* migrations)
+          status (sut/status db)]
+      (is (= -941745976 (-> status ::sut/hash)) status))))
+
+(deftest step-fn
+  (let [migrations {::A {:tx-data [{:db/ident ::my-attr
+                                    :db/valueType :db.type/string
+                                    :db/cardinality :db.cardinality/one}]
+                         :dependencies []}
+                    ::B {:step-fn (fn [{done? :done? :as context}]
+                                    (when (not done?) (assoc context :tx-data [{:db/ident ::stepped}] :done? true)))
+                         :dependencies [::A]}}]
+    (let [{db :db-after} (sut/migrate! *connection* migrations)
+          status (sut/status db)]
+      (is (= -50766689 (-> status ::sut/hash)) status)
+      (is (= ::stepped (-> (d/pull db {:selector '[*] :eid ::stepped}) :db/ident))))))
