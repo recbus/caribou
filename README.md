@@ -46,8 +46,8 @@ since the order of migrations doesn't matter.
 It is tempting to assume that the source (idiomatically, an EDN data file) of migration transaction data is a reliable record
 of the applied migrations.  However, reality sometimes intrudes on this ideal with, human error being the primary culprit: 
 
- * a bad merge changes the migration source files;
- * a migration under development is accidentally applied (hopefully never to a production database!!);
+ * a bad source code merge accidentally corrupts the migration data files;
+ * a migration under development is accidentally applied;
  * an un-repeatable source of migration data is accidentally transacted.
  
 As bad as these mistakes are, they are compounded exponentially when they go unnoticed.  Caribou always verifies the 
@@ -124,10 +124,10 @@ last.
 
 The provided step function is executed in the context of the Clojure (> 1.11.0) `iteration` function, subject to the following:
 
-a. The initial token is the provided _context_ map augmented with the current database value at the `:db` key.
-b. The continutation token/context map returned by the step funciton may have a `:tx-data` key whose contents will be transacted along with 
+* The initial token is the provided _context_ map augmented with the current database value at the `:db` key.
+* The continutation token/context map returned by the step funciton may have a `:tx-data` key whose contents will be transacted along with 
 tx metadata indicating the step (identified by its sequence index) was completed.
-d. If the step function returns nil or false, iteration is halted.
+* If the step function returns nil or false, iteration is halted.
 
 #### Notes on Migration Integrity
 Once a migration has been applied, do not change its source data.  The correlation of each applied migration to its source data is a
@@ -136,9 +136,9 @@ fundamental feature of caribou.
 To ensure that the critical source data is not corrupt (relative to the actual transacted data) caribou computes the signature (a 
 cryptographic hash) of each migration and transacts it along wth the migration's transaction data payload.  This signature authenticates
 the transaction data of the migration (whether supplied directly by `:tx-data` or returned by `:tx-data-fn`) as well as its (recursive)
-dependencies.  Note that even though Datomic has two ways of expressing transaction data (entity maps and datom vectors) the signature
+dependencies.  Note that even though all Datomic transaction data can be expressed as either entity maps or datom vectors, the signature
 is computed from the Clojure data structures used to express the transaction data, not the resulting datoms.  You cannot switch from entity
-maps to datom vectors without changing the signature of a migration.
+maps to datom vectors (or vice-versa) without changing the signature of a migration.
 
 The hash of a `:step-fn` migration is a special case: caribou considers the step function's presence in a migration and ignores its side 
 effects and even its symbol name (thus allowing for namespace refactors).  Beware of this limitation when you really care about "identical" 
@@ -148,13 +148,13 @@ be coordinated with database transactions.
 If the hash computed locally from the source data does not match the recorded hash in the database _for any applied migration in the same
 epoch_, caribou will throw an exception and refuse to apply any further migrations.  If this happens you have two options:
 
-a. Restore or reconstitute the migration source data that generated the transacted migrations.
-b. Declare a new epoch.
+1. Restore or reconstitute the migration source data that generated the transacted migrations.
+2. Declare a new epoch.
 
 Declaring a new epoch acknowledges that the state of the database has irrevocably diverged from any available source data.  This is a bitter
 pill to swallow, particularly for testing, as the migration state of the database can't be reproduced.  Avoid it vigorously.  But if you must, 
 it is possible to start a new epoch with an empty migration data source (map) by incrementing the dynamic variable `*io.recbus.caribou/epoch*` 
-to a value greater than any previously transacted migration.  Thereafter, all existing migrations from the previous epoch (zero, by default) 
+to a value greater than that of any previously transacted migration.  Thereafter, all existing migrations from the previous epoch (zero, by default) 
 are ignored and new migrations can be applied.
 
 #### Adopting an existing database
@@ -163,16 +163,16 @@ caribou to an existing database state.  In order from easy to hard, here are sev
 caribou and your existing database into agreement:
 
 1. Ignore the existing shaping (schema, seeds, etc.) and have caribou manage only new migrations.
- * PROS: it is trivial to get started.
- * CONS: there is no ability to recreate the database shape from scratch using just caribou.
+    * PROS: it is trivial to get started.
+    * CONS: there is no ability to recreate the database shape from scratch using just caribou.
 2. Forensically reconstruct the existing shape as one or more caribou migrations.  This might be as easy as translating
 some existing EDN files into a shape suitable for caribou.  It might be as complex as painstakingly hand-crafting tx-data 
 to match the results of querying the existing database.  Once caribou migration data has been crafted that recreates the 
 existing database shape, execute `io.recbus.caribou/migrate!` with the `claim-only?` option set to `true`.  This will 
 transact "catch-up" migration marker entities but without the associated migration `tx-data`.
- * PROS: the existing (production) database shape can be recreated, assuming the forensically constructed migrations are
+    * PROS: the existing (production) database shape can be recreated, assuming the forensically constructed migrations are
  accurate.
- * CONS: forensically reconstructing caribou migration data for the existing database shape can be tedious; in the pre-
+    * CONS: forensically reconstructing caribou migration data for the existing database shape can be tedious; in the pre-
  existing database, caribou's "catch-up" migration transactions are only markers -no actual "payload" datoms will be
  associated with the transaction.
 
