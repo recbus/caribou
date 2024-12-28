@@ -53,8 +53,8 @@
                                     :db/cardinality :db.cardinality/one}]
                          :dependencies []}}]
     (let [{db :db-after} (sut/migrate! *connection* migrations)]
-      (is (= {::sut/root #{::A},
-	      ::A #{}}
+      (is (= {::sut/root #{::A}
+              ::A #{}}
              (sut/history db))))))
 
 (deftest persisted-hash-is-stable
@@ -176,9 +176,9 @@
         m1 reference-migrations
         {db :db-after} (sut/migrate! *connection* m0 {})]
     (is (= [[-211898652 1013102628]
-	    {:common-count 27,
-	     :only-remote #{},
-	     :only-local #{:st.schema/document-usage}}]
+            {:common-count 27
+             :only-remote #{}
+             :only-local #{:st.schema/document-usage}}]
            (sut/assess db m1 {})))))
 
 (deftest override-tx-instant

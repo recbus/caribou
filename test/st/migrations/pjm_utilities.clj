@@ -64,7 +64,6 @@
                          (str % " County"))))]
     [state cname]))
 
-
 (defn- promote
   [{:keys [state county utility-id balancing-authority-code] :as u}]
   (-> u
