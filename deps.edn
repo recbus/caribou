@@ -1,14 +1,14 @@
 {:mvn/repos {"datomic-cloud" {:url       "s3://datomic-releases-1fc2183a/maven/releases"
                               :snapshots {:enabled false}}}
  :deps      {com.cognitect/anomalies  {:mvn/version "0.1.12"}
-             com.datomic/client-cloud {:mvn/version "1.0.125"}
-             org.clojure/clojure      {:mvn/version "1.11.2"}}
+             com.datomic/client-cloud {:mvn/version "1.0.130"}
+             org.clojure/clojure      {:mvn/version "1.12.0"}}
 
  :paths ["src" "resources"]
 
  :aliases {:dev {:extra-paths ["classes" "dev" "dev-resources"]
-                 :extra-deps  {com.datomic/local      {:mvn/version "1.0.277"}
-                               com.google.guava/guava {:mvn/version "33.1.0-jre"}}
+                 :extra-deps  {com.datomic/local      {:mvn/version "1.0.285"}
+                               com.google.guava/guava {:mvn/version "33.4.0-jre"}}
                  :jvm-opts    [;; https://www.metosin.fi/blog/missing-stacktraces
                                "-XX:-OmitStackTraceInFastThrow"]}
 
@@ -18,15 +18,15 @@
 
            ;; Reference: https://github.com/liquidz/antq
            ;; Example Usage: clj -M:outdated
-           :outdated {:deps      {com.github.liquidz/antq {:mvn/version "2.8.1185"}
+           :outdated {:deps      {com.github.liquidz/antq {:mvn/version "RELEASE"}
                                   ;; unlike Datomic Ions, antq uses version 2.X of slf4j
-                                  org.slf4j/slf4j-nop     {:mvn/version "2.0.12"}}
+                                  org.slf4j/slf4j-nop     {:mvn/version "2.0.16"}}
                       :main-opts ["-m" "antq.core"]}
 
            :test {:extra-paths ["classes" "test" "test-resources"]
                   :extra-deps  {camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
-                                com.datomic/local                   {:mvn/version "1.0.277"}
-                                com.google.guava/guava              {:mvn/version "33.1.0-jre"}
+                                com.datomic/local                   {:mvn/version "1.0.285"}
+                                com.google.guava/guava              {:mvn/version "33.4.0-jre"}
                                 org.clojure/data.csv                {:mvn/version "1.1.0"}}
                   :jvm-opts    ["-XX:-OmitStackTraceInFastThrow"]}
 
