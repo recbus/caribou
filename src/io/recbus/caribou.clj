@@ -19,8 +19,9 @@
 
 (defn- ->mgraph
   "A reducing function suitable for converting a migrations map into a canonical
-  acyclic digraph map whose edges represent dependency order.  The metadata on
-  the map values holds the payload."
+  acyclic digraph map (\"mgraph\").  In an mgraph, keys name the migrations and
+  values represent dependencies.  Metadata on the values holds the migration
+  payload."
   ([] {})
   ([graph] (synthesize-root graph))
   ([graph [k v]] (assoc graph k (with-meta (set (:dependencies v))
@@ -48,6 +49,8 @@
       second))
 
 (defn- topological-sort
+  "Sort the given `mgraph` topologically.  Returns the contents of `mgraph` as
+  a sorted map."
   [mgraph]
   (let [tsort (ad/topological-sort mgraph)
         c (fn topological-order [x y] (compare (.indexOf tsort x) (.indexOf tsort y)))]
@@ -308,9 +311,10 @@
      ::dependency-tree tree}))
 
 (defn assess
-  "Assess the current migration state of the database `db` against the given `migrations`,
-  evaluated in the given `context`.  Returns a vector of the local and remote database migration
-  hashes and a map showing the only-local, common and only-remote (db) migrations."
+  "Assess the current migration state of the database `db` against the given
+  `migrations`, evaluated in the given `context`.  Returns a vector of the local
+  and remote database migration hashes and a map showing the only-local and
+  only-remote (db) migrations plus the count of common migrations."
   [db migrations context]
   (let [{rL ::root :as graphL} (->> (prepare migrations context)
                                     mghash)
