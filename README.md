@@ -176,7 +176,8 @@ transact "catch-up" migration marker entities but without the associated migrati
  existing database, caribou's "catch-up" migration transactions are only markers -no actual "payload" datoms will be
  associated with the transaction.
 
-#### Function Reference
+### Function Reference
+#### migrate!
 The primary API of caribou is only one function: `io.recbus.caribou/migrate!`.
 
 ``` clojure
@@ -190,7 +191,7 @@ with an appropriately reified migration transaction.
 
 The `claim-only?` option is used to inject Caribou migration records without actually transacting the associated `tx-data`.
 
-
+#### assess
 There are also several queries available to help understand the migration state of a given database.  Perhaps the most useful of these is
 the `io.recbus.caribou/assess` query, which returns a map as follows
 
@@ -199,3 +200,8 @@ the `io.recbus.caribou/assess` query, which returns a map as follows
  :only-remote "The set of migrations (names) that are only present in the database."
  :only-local "The set of migrations (names) that are only present in the local data source."}
 ```
+
+#### subtree
+The subtree function takes a migrations map and prunes it to the subtree of only one specified migration and all its transitive
+dependencies.  This can be valuable during testing and development to ensure that no missing dependencies have been forgotten.  
+Pruned  subtrees should be completely migratable on their own -if not, you have probably omitted a dependency.
