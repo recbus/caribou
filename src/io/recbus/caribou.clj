@@ -27,6 +27,15 @@
   ([graph [k v]] (assoc graph k (with-meta (set (:dependencies v))
                                   (dissoc v :dependencies)))))
 
+(defn- mgraph->
+  "Convert an mgraph into a migrations map."
+  [mgraph]
+  (into {}
+        (comp (remove #{::root})
+              (map (fn [[k v]] (let [payload (meta v)]
+                                 [k (assoc payload :dependencies v)]))))
+        mgraph))
+
 (defn- mghash
   "Compute the hash of the migration graph that represents both the acyclic digraph structure
   and payload of each vertex (the migration transaction)."
@@ -323,3 +332,11 @@
         [onlyL common onlyR] (ad/gdiff (dissoc graphL ::root) (dissoc graphR ::root))]
     [[(-> rL meta ::hash) (-> rR meta ::hash)]
      {:common-count (count common) :only-remote onlyR :only-local onlyL}]))
+
+(defn subtree
+  "Prune the given `migrations` to the graph of only the migration `k` and its
+  transitive dependencies."
+  [migrations k]
+  (-> (transduce identity ->mgraph migrations)
+      (ad/subgraph k)
+      mgraph->))

@@ -226,3 +226,13 @@
           status (sut/status db)]
       (is (= -50766689 (-> status ::sut/hash)) status)
       (is (= ::stepped (-> (d/pull db {:selector '[*] :eid ::stepped}) :db/ident))))))
+
+(deftest subtree
+  (let [migrations (sut/subtree reference-migrations :st.seeds/pjm-utilities)
+        {db :db-after} (sut/migrate! *connection* migrations)
+        status (sut/status db)]
+    (is (= [:st.seeds/pjm-utilities
+            :st.schema/pjm-utilities
+            :st.schema/tx-metadata]
+           (keys migrations)))
+    (is (= -339030628 (-> status ::sut/hash)))))

@@ -53,3 +53,12 @@
               dag (pluck dag leaf)
               leaves+ (identify-leaves dag)]
           (recur dag (conj out leaf) (set/union leaves leaves+)))))))
+
+(defn subgraph
+  "Return the subgraph of the DAG `dag` that is rooted at `node`."
+  [dag node]
+  (loop [nodes #{node} out {}]
+    (if-let [node (first nodes)]
+      (let [deps (dag node)]
+        (recur (into (disj nodes node) deps) (assoc out node deps)))
+      out)))

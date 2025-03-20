@@ -47,3 +47,17 @@
 (deftest un-normalized-dag-sort
   (let [g {:a #{:b}}]
     (is (nil? (sut/topological-sort g)))))
+
+(deftest subgraph
+  (let [g {:a #{:b}
+           :b #{:c}
+           :c #{:d :e}
+           :d #{:f}
+           :e #{:f}
+           :f #{}
+           :g #{:c}}]
+    (is (= {:c #{:d :e}
+            :d #{:f}
+            :e #{:f}
+            :f #{}}
+           (sut/subgraph g :c)))))
