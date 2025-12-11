@@ -4,8 +4,7 @@
             [clojure.test :refer [deftest is use-fixtures]]
             [datomic.client.api :as d]
             [datomic.local :as dl]
-            [io.recbus.caribou :as sut])
-  (:import (java.net URI URL)))
+            [io.recbus.caribou :as sut]))
 
 (def ^:dynamic *connection*)
 
@@ -236,3 +235,22 @@
             :st.schema/tx-metadata]
            (keys migrations)))
     (is (= -339030628 (-> status ::sut/hash)))))
+
+(deftest specified-transact-fn
+  (let [before-custom-transact {::A {:tx-data [{:db/ident       :audit/actor
+                                                :db/valueType   :db.type/string
+                                                :db/cardinality :db.cardinality/one}]}}
+        _                      (sut/migrate! *connection* before-custom-transact)
+        actor                  "some-user-running-tx"
+        custom-transact        (fn add-audit
+                                 [conn arg-map]
+                                 (let [audit-tx (update arg-map :tx-data conj {:db/id       "datomic.tx"
+                                                                               :audit/actor actor})]
+                                   (d/transact conn audit-tx)))
+        with-custom-transact   (assoc before-custom-transact ::B {:tx-data [{:db/ident       ::my-attr
+                                                                             :db/valueType   :db.type/string
+                                                                             :db/cardinality :db.cardinality/one}]})]
+    (let [{{tx "datomic.tx"} :tempids db :db-after} (sut/migrate! *connection*
+                                                                  with-custom-transact
+                                                                  :transact-fn custom-transact)]
+      (is (= {:audit/actor actor} (d/pull db [:audit/actor] tx))))))

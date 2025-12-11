@@ -4,8 +4,7 @@
   in the definition of migration dependencies to allow concurrent development
   of unrelated migrations+dependent code on a shared database while enforcing
   installation ordering for dependent migrations."
-  (:require [clojure.java.io :as io]
-            [clojure.set]
+  (:require [clojure.set]
             [datomic.client.api :as d]
             [io.recbus.caribou.acyclic-digraph :as ad]
             [io.recbus.caribou.datomic-helpers :as helpers]))
@@ -66,7 +65,7 @@
     (into (sorted-map-by c) mgraph)))
 
 (defn- install-schema
-  [conn tx-instant]
+  [conn tx-instant transact-fn]
   (let [tx-data (cond-> [{:db/ident ::name
                           :db/doc "The name of this migration"
                           :db/valueType :db.type/keyword
@@ -101,10 +100,10 @@
                           :db/cardinality :db.cardinality/one}]
                   tx-instant (conj {:db/id "datomic.tx"
                                     :db/txInstant tx-instant}))]
-    (d/transact conn {:tx-data tx-data})))
+    (transact-fn conn {:tx-data tx-data})))
 
 (defn install-root
-  [conn tx-instant]
+  [conn tx-instant transact-fn]
   (let [h (-> (transduce identity ->mgraph {}) mghash ::root meta ::hash)
         tx-data (cond-> [{:db/id "root"
                           ::name ::root
@@ -113,7 +112,7 @@
                          [:db/cas "root" ::hash nil h]]
                   tx-instant (conj {:db/id "datomic.tx"
                                     :db/txInstant tx-instant}))]
-    (d/transact conn {:tx-data tx-data})))
+    (transact-fn conn {:tx-data tx-data})))
 
 (defn history
   "Fetch the complete history of migrations from the given database."
@@ -146,16 +145,18 @@
     (into {} xform ms)))
 
 (defn- history!
-  [conn {:keys [tx-instant] :as options}]
+  [conn {:keys [tx-instant transact-fn]
+         :or {transact-fn d/transact}
+         :as options}]
   (let [signature #((juxt :cognitect.anomalies/category :db/error) (ex-data %))]
     (let [h (try (history (d/db conn))
                  (catch clojure.lang.ExceptionInfo e
                    (if (= [:cognitect.anomalies/incorrect :db.error/not-an-entity] (signature e))
-                     (do (install-schema conn tx-instant)
+                     (do (install-schema conn tx-instant transact-fn)
                          (history! conn options))
                      (throw e))))]
       (if (empty? h)
-        (do (try (install-root conn tx-instant)
+        (do (try (install-root conn tx-instant transact-fn)
                  (catch clojure.lang.ExceptionInfo e
                    (when-not (= [:cognitect.anomalies/conflict :db.error/unique-conflict] (signature e))
                      (throw e))))
@@ -163,7 +164,7 @@
         h))))
 
 (defn- transact
-  [conn r0 r1 {:keys [name hash dependencies tx-data]}]
+  [conn r0 r1 {:keys [name hash dependencies tx-data transact-fn]}]
   (let [root-eid (-> r0 meta :db/id)
         tid (str "migration:" name)
         subsumed (map (fn [sd] [:db/retract root-eid ::dependencies [::name+epoch [sd *epoch*]]]) (clojure.set/difference r0 r1))
@@ -175,7 +176,7 @@
                                   ::epoch *epoch*
                                   ::dependencies (map (fn [m] [::name+epoch [m *epoch*]]) dependencies)}]
                         subsumed)]
-    (try (d/transact conn {:tx-data tx-data})
+    (try (transact-fn conn {:tx-data tx-data})
          (catch clojure.lang.ExceptionInfo ex
            (let [{error :db/error :keys [e a v v-old]
                   cancelled? :datomic/cancelled
@@ -205,14 +206,14 @@
         mghash)))
 
 (defn run-effect
-  [conn effector step-fn context]
+  [conn effector step-fn context transact-fn]
   (let [tx-metadata {:db/id "datomic.tx" ::effector effector}
         trxor (fn [{tx-data :tx-data :as context}]
                 (when context
                   (-> context
                       (dissoc :tx-data)
                       ;; automatic tx on every iteration, perhaps degenerate w/ metadata.
-                      (assoc :tx-result (d/transact conn {:tx-data (conj tx-data tx-metadata)})))))
+                      (assoc :tx-result (transact-fn conn {:tx-data (conj tx-data tx-metadata)})))))
         kf (fn [{{db :db-after} :tx-result :as context}]
              (cond-> (dissoc context :tx-result)
                db (assoc :db db)))]
@@ -222,7 +223,9 @@
                                                   :initk (assoc context :db (d/db conn))))))
 
 (defn- execute*
-  [conn graphL & {:keys [tx-instant] :as options}]
+  [conn graphL & {:keys [tx-instant transact-fn]
+                  :or {transact-fn d/transact}
+                  :as options}]
   (loop [{r0 ::root :as graphR} (history! conn options) out []]
     (let [mgraph (topological-sort (merge-graphs graphL graphR))
           [[k v :as m] & ms] (butlast (remove (comp :db/id meta val) mgraph))]
@@ -233,8 +236,8 @@
                               synthesize-root
                               mghash)
               {::keys [hash] :keys [tx-data step-fn context]} (meta v)
-              tx-order {:name k :hash hash :dependencies v :tx-data tx-data}]
-          (when step-fn (run-effect conn k step-fn context))
+              tx-order {:name k :hash hash :dependencies v :tx-data tx-data :transact-fn transact-fn}]
+          (when step-fn (run-effect conn k step-fn context transact-fn))
           (if-let [{db :db-after :as result} (transact conn r0 r1 tx-order)]
             (recur (history db) (conj out result))
             (recur (history (d/db conn)) out)))
@@ -264,7 +267,7 @@
 (defn migrate!
   "Execute the `migrations` against the Datomic connection `conn` and passing the given `context` to
   any `:tx-data-fn` or `:step-fn`."
-  [conn migrations & {:keys [tx-instant context claim-only?] :as options}]
+  [conn migrations & {:keys [tx-instant transact-fn context claim-only?] :as options}]
   (let [results (as-> migrations %
                   (prepare % options)
                   (mghash %)

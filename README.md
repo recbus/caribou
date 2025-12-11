@@ -183,13 +183,16 @@ transact "catch-up" migration marker entities but without the associated migrati
 The primary API of caribou is only one function: `io.recbus.caribou/migrate!`.
 
 ``` clojure
-(migrate! conn migrations & {:keys [tx-instant context claim-only?] :as options})
+(migrate! conn migrations & {:keys [tx-instant transact-fn context claim-only?] :as options})
 ```
 It is possible to omit the `context` parameter, in which case it is assumed to be an empty map (`{}`).
 
 If supplied, `tx-instant` overrides the `:db/txInstant` of the transactions that install Caribou's own schema
 and tracking entity.  It does _not_ override the `:db/txInstant` of your migrations -but that is easily accomplished
 with an appropriately reified migration transaction.
+
+If supplied, `transact-fn` will be used instead of `d/transact` for the migrations. It will also be used to install
+Caribou's own schema and tracking entity.
 
 The `claim-only?` option is used to inject Caribou migration records without actually transacting the associated `tx-data`.
 

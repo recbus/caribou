@@ -71,7 +71,7 @@
                                       :tx-data-fn   st.migrations.ansi-states/tx-data,
                                       :context
                                       {:data
-                                       #st/url "file:/Users/cch1/Development/SunTribe/st/resources/migrations/stt/seeds/ansi/state.txt"},
+                                       #st/url "file:test-resources/migrations/seeds/ansi/state.txt"},
                                       :dependencies [:st.schema/tx-metadata :st.schema/ansi-states]},
  :st.schema/ansi-counties            {:tx-data
                                       [{:db/id "datomic.tx", :st.db/provenance "Schema Migration"}
@@ -127,7 +127,7 @@
                                       :tx-data-fn st.migrations.ansi-counties/tx-data,
                                       :context
                                       {:data
-                                       #st/url "file:/Users/cch1/Development/SunTribe/st/resources/migrations/stt/seeds/ansi/national_county.txt"},
+                                       #st/url "file:test-resources/migrations/seeds/ansi/national_county.txt"},
                                       :dependencies
                                       [:st.schema/tx-metadata
                                        :st.seeds/ansi-states
@@ -256,7 +256,7 @@
                                       st.migrations.pjm-utilities/balancing-authorities-tx-data,
                                       :context
                                       {:data
-                                       #st/url "file:/Users/cch1/Development/SunTribe/st/resources/migrations/stt/seeds/pjm/Utilities_20230323_133352.csv"},
+                                       #st/url "file:test-resources/migrations/seeds/pjm/Utilities_20230323_133352.csv"},
                                       :dependencies [:st.schema/pjm-utilities :st.seeds/ansi-counties]}
  :st.seeds/pjm-utilities             {:tx-data
                                       [{:db/id            "datomic.tx",
@@ -265,7 +265,7 @@
                                       :tx-data-fn   st.migrations.pjm-utilities/utilities-tx-data,
                                       :context
                                       {:data
-                                       #st/url "file:/Users/cch1/Development/SunTribe/st/resources/migrations/stt/seeds/pjm/Utilities_20230323_133352.csv"},
+                                       #st/url "file:test-resources/migrations/seeds/pjm/Utilities_20230323_133352.csv"},
                                       :dependencies [:st.schema/pjm-utilities]}
  :st.seeds/pjm-cubs                  {:tx-data
                                       [{:db/id            "datomic.tx",
@@ -274,7 +274,7 @@
                                       :tx-data-fn st.migrations.pjm-utilities/cubs-tx-data,
                                       :context
                                       {:data
-                                       #st/url "file:/Users/cch1/Development/SunTribe/st/resources/migrations/stt/seeds/pjm/Utilities_20230323_133352.csv"},
+                                       #st/url "file:test-resources/migrations/seeds/pjm/Utilities_20230323_133352.csv"},
                                       :dependencies
                                       [:st.schema/pjm-utilities
                                        :st.seeds/pjm-utilities
